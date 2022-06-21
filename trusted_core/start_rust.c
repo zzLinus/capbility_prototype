@@ -1,4 +1,4 @@
-#include <riscv.h>
+#include "include/riscv_asm_c_wrap.h"
 
 #define CPU_NUM 2
 

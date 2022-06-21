@@ -2,7 +2,7 @@
 #ifndef _RISCV_ASM_C_WRAP_H
 #define _RISCV_ASM_C_WRAP_H
 
-#include <types.h>
+#include "types.h"
 
 // which hart (core) is this?
 static inline uint64 r_mhartid()
