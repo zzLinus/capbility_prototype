@@ -1,6 +1,6 @@
 /* based on xv6-riscv */
-#ifndef _RISCV_H
-#define _RISCV_H
+#ifndef _RISCV_ASM_C_WRAP_H
+#define _RISCV_ASM_C_WRAP_H
 
 #include <types.h>
 
@@ -331,4 +331,4 @@ static inline void sfence_vma()
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
 
-#endif /* _RISCV_H */
+#endif /* _RISCV_ASM_C_WRAP_H */
