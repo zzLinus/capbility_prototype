@@ -49,8 +49,7 @@ m_trap_vector:
 		.set	i, i+1
 	.endr
 
-	# Save the actual t6 register, which we swapped into
-	# mscratch
+	# Save the actual t6 register, which we swapped into mscratch
 	mv	t5, t6
 	csrr	t6, mscratch
 	save_gp 31, t5
@@ -69,9 +68,9 @@ m_trap_vector:
 	csrr	a3, mhartid
 	csrr	a4, mstatus
 	csrr	a5, mscratch
-	la	t0, KERNEL_STACK_END
+	la	t0, m_trap_context
 	ld	sp, 0(t0)
-	call	m_trap
+	// call	m_trap
 
 	# When we get here, we've returned from m_trap, restore registers
 	# and return.
@@ -91,48 +90,3 @@ m_trap_vector:
 	# Since we ran this loop 31 times starting with i = 1,
 	# the last one loaded t6 back to its original value.
 	mret
-
-	.global switch_to_user
-switch_to_user:
-        # a0 - Frame address
-	# a1 - Program counter
-	# a2 - SATP Register
-        csrw    mscratch, a0
-
-	// Load program counter
-	ld	a1, 520(a0)
-	// Load satp
-	ld	a2, 512(a0)
-
-	# 1 << 7 is MPIE
-	# Since user mode is 00, we don't need to set anything
-	# in MPP (bits 12:11)
-	li	t0, 1 << 7 | 1 << 5
-	csrw	mstatus, t0
-	csrw	mepc, a1
-	csrw	satp, a2
-	li	t1, 0xaaa
-	csrw	mie, t1
-	la	t2, m_trap_vector
-	csrw	mtvec, t2
-	# This fence forces the MMU to flush the TLB. However, since
-	# we're using the PID as the address space identifier, we might
-	# only need this when we create a process. Right now, this ensures
-	# correctness, however it isn't the most efficient.
-	# sfence.vma
-	# A0 is the context frame, so we need to reload it back
-	# and mret so we can start running the program.
-	mv	t6, a0
-	.set	i, 1
-	.rept	31
-		load_gp %i, t6
-		.set	i, i+1
-	.endr
-	# j .
-	    mret
-
-
-	.global make_syscall
-make_syscall:
-	ecall
-	ret

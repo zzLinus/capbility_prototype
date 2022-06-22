@@ -7,10 +7,10 @@
         .global _entry
 _entry:
 	# set up a stack for C.
-        # c_stack is declared in start_rust.c,
+        # kernel_stack is declared in start_rust.c,
         # with a 4096-byte stack per CPU.
-        # sp = c_stack + (hartid * 4096)
-        la sp, c_stack
+        # sp = kernel_stack + (hartid * 4096)
+        la sp, kernel_stack
         li a0, 1024*4
 	csrr a1, mhartid
         addi a1, a1, 1

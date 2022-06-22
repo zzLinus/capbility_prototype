@@ -1,3 +1,5 @@
+#include "include/page.h"
+#include "include/context.h"
 #include "include/riscv_asm_c_wrap.h"
 
 #define CPU_NUM 2
@@ -8,12 +10,20 @@
 // M mode trap vector which is implemted by assmbly language
 extern void m_trap_vector();
 
-__attribute__ ((aligned (16))) char c_stack[4096 * CPU_NUM];
-uint64 scratch_context[SCRATCH_REG_SIZE];
+/*
+ * spaces for kernel stack, S mode trap context, and M mode trap context.
+ * kernel stack: 4K
+ * S mode trap context: 4K
+ * M mode trap context: 4k
+ * currently safeOS only provies only one context space, so it does not
+ * support multiple process/thread.
+ */
+__attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * CPU_NUM];
+__attribute__ ((aligned (16))) uint64 s_trap_context[PAGE_SIZE/sizeof(uint64)];
+__attribute__ ((aligned (16))) uint64 m_trap_context[PAGE_SIZE/sizeof(uint64)];
 
 // entry.S jumps start_rust in M mode on stack0
-// start_rust() jumps to rust language which is in S mode, before that
-// it needs to:
+// start_rust() prepares to jump to rust language which is in S mode, it:
 // 1. initialize memory management, includng satp, stack, bss(?)
 // 2. initialize traps and interrupts:
 //    a) delegate traps and interupts to S mode (MEDELEG, MIDELEG), and
@@ -22,7 +32,8 @@ uint64 scratch_context[SCRATCH_REG_SIZE];
 //    c) set return mode to S mode (MPP, MEPC)
 void start_rust()
 {
-	uint64 *scratch_ptr;
+	uint64 *mscratch_ptr;
+	uint64 *sscratch_ptr;
 
 	// initialzie memory mamagement
 	// 1. set satp
@@ -35,9 +46,12 @@ void start_rust()
 	w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 	w_mtvec((uint64)m_trap_vector);
 
-	// set mscratch register
-	scratch_ptr = &scratch_context[0];
-	w_mscratch((uint64)scratch_ptr);
+	// set context saving spaces for S and M mode (mscratch, sscratch)
+	mscratch_ptr = &m_trap_context[0];
+	w_mscratch((uint64)mscratch_ptr);
+	// todo: move sscratch initialization to S mode
+	sscratch_ptr = &s_trap_context[0];
+	w_sscratch((uint64)sscratch_ptr);
 
 	// configure PMP to allow S mode accessing all physical memory
 	w_pmpaddr0(PMP_ALL_PHY_MEM);
