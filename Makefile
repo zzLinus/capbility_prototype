@@ -7,6 +7,8 @@ CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
 OBJCOPY = $(TOOLCHAIN_PREFIX)objcopy
 OBJDUMP = $(TOOLCHAIN_PREFIX)objdump
+RUST_BUILD_TYPE = debug
+RUST_TOOLCHAIN_TARGET = riscv64gc-unknown-none-elf
 
 # Build path and variables
 ROOT_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
@@ -19,6 +21,10 @@ TRUSTED_CORE_ASM_DEPS = $(TRUSTED_CORE_ASM_OBJS:.o=.d)
 TRUSTED_CORE_C_FILES = $(wildcard $(TRUSTED_CORE_SRC_DIR)/boot/*.c)
 TRUSTED_CORE_C_OBJS = $(subst $(ROOT_DIR), $(BUILD_DIR), $(TRUSTED_CORE_C_FILES:.c=.o))
 TRUSTED_CORE_C_DEPS = $(TRUSTED_CORE_C_OBJS:.o=.d)
+
+# rust libray
+RUST_BUILD_TYPE = debug
+TRUSTED_CORE_RUST_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main
 
 # compiler options, borrowed from xv6-riscv
 LINKER_SCRIPT = $(TRUSTED_CORE_SRC_DIR)/boot/kernel.ld
@@ -40,7 +46,10 @@ endif
 LDFLAGS = -z max-page-size=4096
 
 # Target
+TARGET = safeos.elf
 TRUSTED_CORE_LIB = $(BUILD_DIR)/trusted_core.a
+TRUSTED_CORE_RUST_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main/target/$(RUST_TOOLCHAIN_TARGET)/$(RUST_BUILD_TYPE)
+TRUSTED_CORE_RUST_LIB = $(TRUSTED_CORE_RUST_LIB_DIR)/librust_main.a
 
 # implicit rules to compile assembly files
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.S
@@ -52,7 +61,12 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.S
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 	@mkdir -p $(dir $@)
 	@echo CC $<
-	@$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# build rust libs
+$(TRUSTED_CORE_RUST_LIB):
+	cd $(TRUSTED_CORE_RUST_DIR)
+	cargo build
 
 # build trusted_core
 $(TRUSTED_CORE_LIB): $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS)
@@ -63,7 +77,8 @@ $(TRUSTED_CORE_LIB): $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS)
 qemu: $(TRUSTED_CORE_LIB)
 
 # build all
-all: $(TRUSTED_CORE_LIB)
+all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
+	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
 
 # clean
 clean:

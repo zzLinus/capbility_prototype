@@ -9,6 +9,7 @@
 
 // M mode trap vector which is implemted by assmbly language
 extern void m_trap_vector();
+extern void rust_main();
 
 /*
  * spaces for kernel stack, S mode trap context, and M mode trap context.
@@ -62,6 +63,6 @@ void start_rust()
 	temp &= ~MSTATUS_MPP_MASK;
 	temp |= MSTATUS_MPP_S;
 	w_mstatus(temp);
-	// w_mepc((uint64)rust_main);
+	w_mepc((uint64)rust_main);
 	asm volatile("mret");
 }
