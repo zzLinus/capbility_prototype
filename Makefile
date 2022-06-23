@@ -13,15 +13,15 @@ ROOT_DIR := $(realpath $(dir $(firstword $(MAKEFILE_LIST))))
 BUILD_DIR = $(ROOT_DIR)/build
 TRUSTED_CORE_SRC_DIR = $(ROOT_DIR)/trusted_core
 
-TRUSTED_CORE_ASM_FILES = $(wildcard $(TRUSTED_CORE_SRC_DIR)/*.S)
+TRUSTED_CORE_ASM_FILES = $(wildcard $(TRUSTED_CORE_SRC_DIR)/boot/*.S)
 TRUSTED_CORE_ASM_OBJS = $(subst $(ROOT_DIR), $(BUILD_DIR), $(TRUSTED_CORE_ASM_FILES:.S=.o))
 TRUSTED_CORE_ASM_DEPS = $(TRUSTED_CORE_ASM_OBJS:.o=.d)
-TRUSTED_CORE_C_FILES = $(wildcard $(TRUSTED_CORE_SRC_DIR)/*.c)
+TRUSTED_CORE_C_FILES = $(wildcard $(TRUSTED_CORE_SRC_DIR)/boot/*.c)
 TRUSTED_CORE_C_OBJS = $(subst $(ROOT_DIR), $(BUILD_DIR), $(TRUSTED_CORE_C_FILES:.c=.o))
 TRUSTED_CORE_C_DEPS = $(TRUSTED_CORE_C_OBJS:.o=.d)
 
 # compiler options, borrowed from xv6-riscv
-LINKER_SCRIPT = $(TRUSTED_CORE_SRC_DIR)/kernel.ld
+LINKER_SCRIPT = $(TRUSTED_CORE_SRC_DIR)/boot/kernel.ld
 CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
