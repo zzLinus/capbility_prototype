@@ -10,7 +10,7 @@ SECTIONS
   . = 0x80000000;
 
   .text : {
-    *(.entry.text .text.*)
+    *(.text.entry .text.*)
     . = ALIGN(0x1000);
     _trampoline = .;
     *(trampsec)
