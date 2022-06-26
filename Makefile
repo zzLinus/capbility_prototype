@@ -5,6 +5,7 @@ TOOLCHAIN_PATH = /usr/bin
 TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-linux-gnu-
 CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
+AS = $(TOOLCHAIN_PREFIX)as
 OBJCOPY = $(TOOLCHAIN_PREFIX)objcopy
 OBJDUMP = $(TOOLCHAIN_PREFIX)objdump
 RUST_BUILD_TYPE = debug
@@ -46,16 +47,18 @@ endif
 LDFLAGS = -z max-page-size=4096
 
 # Target
-TARGET = safeos.elf
-TRUSTED_CORE_LIB = $(BUILD_DIR)/trusted_core.a
+TARGET = $(BUILD_DIR)/safeos.elf
 TRUSTED_CORE_RUST_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main/target/$(RUST_TOOLCHAIN_TARGET)/$(RUST_BUILD_TYPE)
 TRUSTED_CORE_RUST_LIB = $(TRUSTED_CORE_RUST_LIB_DIR)/librust_main.a
+
+# qemu
+QEMU = qemu-system-riscv64
 
 # implicit rules to compile assembly files
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.S
 	@mkdir -p $(dir $@)
 	@echo CC $<
-	@$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # implicit rules to compile C files
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
@@ -68,17 +71,25 @@ $(TRUSTED_CORE_RUST_LIB):
 	cd $(TRUSTED_CORE_RUST_DIR)
 	cargo build
 
-# build trusted_core
-$(TRUSTED_CORE_LIB): $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS)
-	@mkdir -p $(dir $@)
-	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $@ $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS)
-
-# build and run qemu image
-qemu: $(TRUSTED_CORE_LIB)
-
 # build all
 all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
 	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
+
+# build and run qemu image
+CPU_NUM = 1
+QEMUOPTS = -machine virt -bios none -kernel $(TARGET) -m 128M -smp $(CPU_NUM) -nographic
+QEMUOPTS += -drive file=$(BUILD_DIR)/hdd.dsk,if=none,format=raw,id=x0
+QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+qemu: all
+	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
+	$(QEMU) $(QEMUOPTS)
+#	$(QEMU) -machine $(MACH) -cpu $(CPU) -smp $(CPU_NUM) -m $(MEM)  -nographic -serial mon:stdio -bios none -kernel $(TARGET) -drive if=none,format=raw,file=$(DRIVE),id=foo -device virtio-blk-device,scsi=off,drive=foo
+
+# run qemu with gdb
+QEMUGDB = -S -gdb tcp::26000
+qemu-gdb: all
+	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
+	$(QEMU) $(QEMUOPTS) $(QEMUGDB)
 
 # clean
 clean:
@@ -87,6 +98,5 @@ clean:
 test:
 	@echo $(ROOT_DIR)
 	@echo $(TRUSTED_CORE_DIR)
-	@echo $(TRUSTED_CORE_ASM_OBJS)
-	@echo $(TRUSTED_CORE_ASM_FILES)
-	@echo $(TRUSTED_CORE_ASM_OBJS)
+	@echo "asm objs" $(TRUSTED_CORE_ASM_OBJS)
+	@echo "asm files" $(TRUSTED_CORE_ASM_FILES)
