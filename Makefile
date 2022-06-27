@@ -67,9 +67,9 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # build rust libs
+.PHONY: $(TRUSTED_CORE_RUST_LIB)
 $(TRUSTED_CORE_RUST_LIB):
-	cd $(TRUSTED_CORE_RUST_DIR)
-	cargo build
+	cd $(TRUSTED_CORE_RUST_DIR) && cargo build
 
 # build all
 all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
