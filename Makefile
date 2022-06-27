@@ -2,7 +2,7 @@
 
 # Tool chain
 TOOLCHAIN_PATH = /usr/bin
-TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-linux-gnu-
+TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-elf-
 CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
 AS = $(TOOLCHAIN_PREFIX)as
