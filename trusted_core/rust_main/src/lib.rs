@@ -2,6 +2,7 @@
 #![feature(panic_info_message)]
 
 use core::arch::asm;
+
 // Macros for print
 #[macro_export]
 macro_rules! print
@@ -54,6 +55,8 @@ fn abort() -> ! {
 }
 
 pub mod uart;
+pub mod kmem;
+pub mod pagetable;
 
 #[no_mangle]
 // rust language entry point, C start() jumps here
@@ -61,6 +64,8 @@ extern "C"
 fn rust_main() {
     let mut my_uart = uart::Uart::new(0x1000_0000);
     my_uart.init();
+    let mut mem = kmem::Kmem::new();
+    let memory_set = pagetable::MemorySet::map_kernel(&mut mem);
 
     println!("safeOS is booting ...");
 }
