@@ -40,5 +40,10 @@ SECTIONS
     *(.bss .bss.*)
   }
 
+  . = ALIGN(16);
+  sheap = .;
+  eheap = . + 0x4000000;
+  . = eheap;
+
   PROVIDE(end = .);
 }

@@ -9,3 +9,4 @@ edition = "2021"
 crate-type = ["staticlib"]
 
 [dependencies]
+bitflags = "1.2.1"
