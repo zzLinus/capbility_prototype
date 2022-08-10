@@ -7,9 +7,18 @@
 #define SCRATCH_REG_SIZE 5
 #define PMP_ALL_PHY_MEM 0x3fffffffffffffUL
 
+//CLINT
+#define CLINT_BASE 0x2000000
+#define CLINT_MTIMECMP (CLINT_BASE + 0x4000)
+#define CLINT_MTIME (CLINT_BASE + 0xBFF8)
+#define CLINT_CMP_VALUE 1000
+
+#define REG64(addr) ((volatile uint64_t*)addr)
+
 // M mode trap vector which is implemted by assmbly language
 extern void m_trap_vector();
 extern void rust_main();
+extern void s_trap_vector();
 
 /*
  * spaces for kernel stack, S mode trap context, and M mode trap context.
@@ -22,6 +31,8 @@ extern void rust_main();
 __attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * CPU_NUM];
 __attribute__ ((aligned (16))) uint64 s_trap_context[PAGE_SIZE/sizeof(uint64)];
 __attribute__ ((aligned (16))) uint64 m_trap_context[PAGE_SIZE/sizeof(uint64)];
+
+
 
 // entry.S jumps start_rust in M mode on stack0
 // start_rust() prepares to jump to rust language which is in S mode, it:
@@ -42,10 +53,12 @@ void start_rust()
 	w_satp(0);
 
 	// delegate traps and interrupts to S mode
-	w_medeleg(0xFFFF);
+	w_medeleg(0xF0FF);
 	w_mideleg(0xFFFF);
+	w_mie(r_mie() | MIE_MEIE | MIE_MTIE | MIE_MSIE);
 	w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 	w_mtvec((uint64)m_trap_vector);
+	w_stvec((uint64)s_trap_vector);
 
 	// set context saving spaces for S and M mode (mscratch, sscratch)
 	mscratch_ptr = &m_trap_context[0];
@@ -62,6 +75,7 @@ void start_rust()
 	uint64 temp = r_mstatus();
 	temp &= ~MSTATUS_MPP_MASK;
 	temp |= MSTATUS_MPP_S;
+	temp |= MSTATUS_MPIE;
 	w_mstatus(temp);
 	w_mepc((uint64)rust_main);
 	asm volatile("mret");

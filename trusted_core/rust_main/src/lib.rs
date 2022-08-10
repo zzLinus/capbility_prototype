@@ -2,7 +2,6 @@
 #![feature(panic_info_message)]
 
 use core::arch::asm;
-
 // Macros for print
 #[macro_export]
 macro_rules! print
@@ -31,50 +30,46 @@ extern "C" fn eh_personality() {}
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-        print!("Aborting: ");
-        if let Some(p) = info.location() {
-                println!(
-                    "line {}, file {}: {}",
-                    p.line(),
-                    p.file(),
-                    info.message().unwrap()
-                );
-        } else {
-            println!("no information available.");
-        }
-        abort();
+    print!("Aborting: ");
+    if let Some(p) = info.location() {
+        println!(
+            "line {}, file {}: {}",
+            p.line(),
+            p.file(),
+            info.message().unwrap()
+        );
+    } else {
+        println!("no information available.");
+    }
+    abort();
 }
 #[no_mangle]
-extern "C"
-fn abort() -> ! {
-        loop {
-                unsafe {
-                    asm!("wfi");
-                }
+extern "C" fn abort() -> ! {
+    loop {
+        unsafe {
+            asm!("wfi");
         }
+    }
 }
 
+pub mod cpu;
+pub mod ecall;
+pub mod timer;
+pub mod trap;
 pub mod uart;
 pub mod kmem;
 pub mod pagetable;
 
 #[no_mangle]
 // rust language entry point, C start() jumps here
-extern "C"
-fn rust_main() {
+extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(0x1000_0000);
     my_uart.init();
     let mut mem = kmem::Kmem::new();
     let memory_set = pagetable::MemorySet::map_kernel(&mut mem);
+    cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
+    timer::clint_init();
 
     println!("safeOS is booting ...");
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
-    }
+    loop {}
 }
