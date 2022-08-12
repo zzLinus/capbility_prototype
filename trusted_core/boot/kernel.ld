@@ -41,6 +41,7 @@ SECTIONS
   }
 
   . = ALIGN(16);
+  . = . + 0x2000;
   sheap = .;
   eheap = . + 0x4000000;
   . = eheap;
