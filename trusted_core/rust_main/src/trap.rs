@@ -32,5 +32,6 @@ const STORE_PAGE_FAULT: usize = 0x000000000000000F;
 extern "C" fn s_trap() {
     match r_scause() {
         SUPERVISOR_TIMER_INTERRUPT => s_timer_trap(),
+        _ => unreachable!(),
     }
 }

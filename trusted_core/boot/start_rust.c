@@ -75,7 +75,6 @@ void start_rust()
 	uint64 temp = r_mstatus();
 	temp &= ~MSTATUS_MPP_MASK;
 	temp |= MSTATUS_MPP_S;
-	temp |= MSTATUS_MPIE;
 	w_mstatus(temp);
 	w_mepc((uint64)rust_main);
 	asm volatile("mret");
