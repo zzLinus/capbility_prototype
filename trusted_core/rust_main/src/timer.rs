@@ -35,7 +35,6 @@ pub fn read_mtime() -> usize {
 }
 
 pub fn s_timer_trap() {
-    let cmp_ptr: *mut usize = CLINT_CMP as *mut usize;
     unsafe {
         TIMER_COUNT += 1;
     }
