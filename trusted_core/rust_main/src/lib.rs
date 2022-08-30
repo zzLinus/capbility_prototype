@@ -1,11 +1,13 @@
 #![no_std]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
+#![feature(const_mut_refs)]
 #[warn(dead_code)]
 use core::arch::asm;
 use crate::pagetable::*;
 use crate::kmem::Kmem;
-mod heapallocator_buddy;
+mod physmemallocator_buddy;
+mod physmemallocator_slab;
 mod mutex;
 extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
@@ -109,7 +111,7 @@ extern "C" fn rust_main() {
     my_uart.init();
     let mut mem = Kmem::new();
     let _pagetable_kernel = vspace_init(&mut mem);
-    globalallocator_impl::init_heap();
+    globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
     timer::clint_init();
     println!("safeOS is booting ...");
