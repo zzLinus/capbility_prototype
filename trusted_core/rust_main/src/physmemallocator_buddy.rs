@@ -13,26 +13,26 @@ const MIN_BLOCK_SIZE: usize = 4096;
 const MIN_BLOCK_SIZE_LOG2: u8 = 12;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-pub struct Heap {
+pub struct PhysMemory {
     pub base: *mut u8,
     pub size: usize,
 }
 
-pub struct HeapAllocator {
-    region: Heap,
+pub struct BuddyAllocator {
+    region: PhysMemory,
     free_lists: [*mut FreeBlock; MAX_LISTS_NUM],
     min_block_size: usize,
     min_block_size_log2: u8,
 }
 
 // Sync crate and Send must be implemented for the HeapAllocator
-unsafe impl Send for HeapAllocator {}
-unsafe impl Sync for HeapAllocator {}
+unsafe impl Send for BuddyAllocator {}
+unsafe impl Sync for BuddyAllocator {}
 
-impl HeapAllocator {
-    pub const fn new() -> HeapAllocator {
-        HeapAllocator {
-            region: Heap {
+impl BuddyAllocator {
+    pub const fn new() -> BuddyAllocator {
+        BuddyAllocator {
+            region: PhysMemory {
                 base: 0 as *mut u8,
                 size: 0,
             },
@@ -70,12 +70,44 @@ impl HeapAllocator {
         }
     }
 
-    pub unsafe fn init_region(&mut self, region: Heap) {
+    pub unsafe fn init_region(&mut self, region: PhysMemory) {
         self.region = region;
         let order = self
             .allocation_order(Layout::from_size_align_unchecked(region.size, 4096))
             .expect("Failed to calculate order for root heap block");
         self.free_list_dealloc(order, region.base);
+    }
+
+    pub unsafe fn allocate(&mut self, layout: Layout) -> *mut u8 {
+        if let Some(order_needed) = self.allocation_order(layout) {
+            for order in order_needed..self.free_lists.len() {
+                if let Some(block) = self.free_list_alloc(order) {
+                    if order > order_needed {
+                        self.split_free_block(block, order, order_needed);
+                    }
+                    return block;
+                }
+            }
+            ptr::null_mut()
+        } else {
+            ptr::null_mut()
+        }
+    }
+
+    pub unsafe fn deallocate(&mut self, region: PhysMemory, layout: Layout) {
+        let initial_order = self.allocation_order(layout)
+            .expect("This is a invalid block");
+        let mut block = region.base;
+        for order in initial_order..self.free_lists.len() {
+            if let Some(buddy) = self.buddy(order, block) {
+                if self.free_list_remove(order, buddy) {
+                    block = min(block, buddy);
+                    continue;
+                }
+            }
+            self.free_list_dealloc(order, block);
+            return;
+        }
     }
 
     fn allocation_size(&self, layout: Layout) -> Option<usize> {
@@ -156,38 +188,6 @@ impl HeapAllocator {
             trace_ptr = &mut ((*(*trace_ptr)).next);
         }
         false
-    }
-
-    pub unsafe fn allocate(&mut self, layout: Layout) -> *mut u8 {
-        if let Some(order_needed) = self.allocation_order(layout) {
-            for order in order_needed..self.free_lists.len() {
-                if let Some(block) = self.free_list_alloc(order) {
-                    if order > order_needed {
-                        self.split_free_block(block, order, order_needed);
-                    }
-                    return block;
-                }
-            }
-            ptr::null_mut()
-        } else {
-            ptr::null_mut()
-        }
-    }
-
-    pub unsafe fn deallocate(&mut self, region: Heap, layout: Layout) {
-        let initial_order = self.allocation_order(layout)
-            .expect("This is a invalid block");
-        let mut block = region.base;
-        for order in initial_order..self.free_lists.len() {
-            if let Some(buddy) = self.buddy(order, block) {
-                if self.free_list_remove(order, buddy) {
-                    block = min(block, buddy);
-                    continue;
-                }
-            }
-            self.free_list_dealloc(order, block);
-            return;
-        }
     }
 }
 

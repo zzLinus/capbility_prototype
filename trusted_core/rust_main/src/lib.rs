@@ -5,7 +5,7 @@
 use core::arch::asm;
 use crate::pagetable::*;
 use crate::kmem::Kmem;
-mod heapallocator_buddy;
+mod physmemallocator_buddy;
 mod mutex;
 extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
