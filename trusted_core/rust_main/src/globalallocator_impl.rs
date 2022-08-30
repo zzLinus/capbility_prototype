@@ -5,10 +5,13 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::mem::transmute;
 use core::ptr::NonNull;
 
-const HEAP_BASE: usize = 0x8005_1520;
-const HEAP_SIZE: usize = 0x400_0000;
 const BASE_PAGE_SIZE: usize = 4096;
 const MAX_ALLOC_SIZE: usize = 1 << 17;
+
+extern "C" {
+    fn sheap();
+    fn eheap();
+}
 
 #[allow(dead_code)]
 pub struct PhysMemAllocator {
@@ -100,7 +103,7 @@ pub fn handle_alloc_error(layout: Layout) -> ! {
 
 
 pub fn init_mm() {
-    let physmem:PhysMemory = PhysMemory{base: HEAP_BASE as *mut u8, size: HEAP_SIZE};
+    let physmem:PhysMemory = PhysMemory{base: sheap as *mut u8, size :(eheap as usize - sheap as usize)};
     unsafe { PHYS_MEM_ALLOCATOR.buddyallocator.lock().init_region(physmem)};
 
 }
