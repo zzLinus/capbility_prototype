@@ -12,6 +12,134 @@ const BALANCE_COUNT: usize = 64;
 const BASIC_SIZE: usize = 80;
 const FOUR_K_SIZE: usize = 4096;
 
+pub struct SlabPool<'a> {
+    slabs: [SlabAllocator<'a, PageObject<'a>>; SlabPool::MAX_SLABALLOCATOR],
+}
+
+impl<'a> Default for SlabPool<'a> {
+    fn default() -> SlabPool<'a> {
+        SlabPool {
+            slabs: [
+                SlabAllocator::new(1 << 3), // 8
+                SlabAllocator::new(1 << 4), // 16
+                SlabAllocator::new(1 << 5), // 32
+                SlabAllocator::new(1 << 6), // 64
+                SlabAllocator::new(1 << 7), // 128
+                SlabAllocator::new(1 << 8), // 256
+                SlabAllocator::new(1 << 9),  // 512
+                SlabAllocator::new(1 << 10), // 1024
+                SlabAllocator::new(1 << 11), // 2048
+                SlabAllocator::new(1 << 12), // 4096
+                SlabAllocator::new(1 << 13), // 8192
+                SlabAllocator::new(1 << 14), // 16384
+                SlabAllocator::new(1 << 15), // 32767
+                SlabAllocator::new(1 << 16), // 65536
+                SlabAllocator::new(1 << 17), // 131072
+            ],
+        }
+    }
+}
+
+impl<'a> SlabPool<'a> {
+
+    const MAX_SLABALLOCATOR: usize = 15;
+
+    pub const fn new() -> SlabPool<'a> {
+         SlabPool {
+            slabs: [
+                SlabAllocator::new(1 << 3), // 8
+                SlabAllocator::new(1 << 4), // 16
+                SlabAllocator::new(1 << 5), // 32
+                SlabAllocator::new(1 << 6), // 64
+                SlabAllocator::new(1 << 7), // 128
+                SlabAllocator::new(1 << 8), // 256
+                SlabAllocator::new(1 << 9),  // 512
+                SlabAllocator::new(1 << 10), // 1024
+                SlabAllocator::new(1 << 11), // 2048
+                SlabAllocator::new(1 << 12), // 4096
+                SlabAllocator::new(1 << 13), // 8192
+                SlabAllocator::new(1 << 14), // 16384
+                SlabAllocator::new(1 << 15), // 32767
+                SlabAllocator::new(1 << 16), // 65536
+                SlabAllocator::new(1 << 17), // 131072
+            ],
+        }
+    }
+    fn get_slab(requested_size: usize) -> Slab {
+        match requested_size {
+            0..=8 => Slab::Base(0),
+            9..=16 => Slab::Base(1),
+            17..=32 => Slab::Base(2),
+            33..=64 => Slab::Base(3),
+            65..=128 => Slab::Base(4),
+            129..=256 => Slab::Base(5),
+            257..=512 => Slab::Base(6),
+            513..=1024 => Slab::Base(7),
+            1025..=2048 => Slab::Base(8),
+            2049..=4096 => Slab::Base(9),
+            4097..=8192 => Slab::Base(10),
+            8193..=16384 => Slab::Base(11),
+            16385..=32767 => Slab::Base(12),
+            32768..=65536 => Slab::Base(13),
+            65537..=131_072 => Slab::Base(14),
+            _ => Slab::Unsupported,
+        }
+    }
+    // Reclaims empty pages by calling `dealloc` on it and removing it from the
+    // empty lists in the SlabAllocator.
+    #[allow(unused)]
+    fn try_reclaim_base_pages<F>(&mut self, mut reclaim: usize, mut dealloc: F)
+    where
+        F: Fn(*mut PageObject),
+    {
+        for i in 0..SlabPool::MAX_SLABALLOCATOR {
+            let slab = &mut self.slabs[i];
+            let just_reclaimed = slab.try_reclaim_pages(reclaim, &mut dealloc);
+            reclaim = reclaim.checked_sub(just_reclaimed).unwrap_or(0);
+            if reclaim == 0 {
+                break;
+            }
+        }
+    }
+}
+
+pub unsafe trait Allocator<'a> {
+    fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocationError>;
+    fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), AllocationError>;
+    unsafe fn refill(
+        &mut self,
+        layout: Layout,
+        new_page: &'a mut PageObject<'a>,
+    ) -> Result<(), AllocationError>;
+}
+
+unsafe impl<'a> Allocator<'a> for SlabPool<'a> {
+    fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocationError> {
+        match SlabPool::get_slab(layout.size()) {
+            Slab::Base(index) => self.slabs[index].allocate(layout),
+            Slab::Unsupported => Err(AllocationError::InvalidLayout),
+        }
+    }
+
+    fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), AllocationError> {
+        match SlabPool::get_slab(layout.size()) {
+            Slab::Base(index) => self.slabs[index].deallocate(ptr, layout),
+            Slab::Unsupported => Err(AllocationError::InvalidLayout),
+        }
+    }
+
+    // Refills the SlabAllocator
+    unsafe fn refill(&mut self, layout: Layout, new_page: &'a mut PageObject<'a>) -> Result<(), AllocationError> {
+        match SlabPool::get_slab(layout.size()) {
+            Slab::Base(index) => {
+                self.slabs[index].refill(new_page);
+                Ok(())
+            }
+            Slab::Unsupported => Err(AllocationError::InvalidLayout),
+        }
+    }
+}
+
 // Erroe type
 #[derive(Debug)]
 pub enum AllocationError {
