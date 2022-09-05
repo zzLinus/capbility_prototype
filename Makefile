@@ -66,13 +66,22 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 	@echo CC $<
 	$(CC) $(CFLAGS) -c $< -o $@
 
+.PHONY: rust_lib rust_lib_with_tests
+
 # build rust libs
-.PHONY: $(TRUSTED_CORE_RUST_LIB)
-$(TRUSTED_CORE_RUST_LIB):
+rust_lib:
 	cd $(TRUSTED_CORE_RUST_DIR) && cargo build
 
+# build rust libs with tests
+rust_lib_with_tests:
+	cd $(TRUSTED_CORE_RUST_DIR) && cargo rustc -- --cfg 'kernel_test'
+
 # build all
-all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
+all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) rust_lib
+	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
+
+# build test
+test: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) rust_lib_with_tests
 	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
 
 # build and run qemu image
@@ -91,12 +100,12 @@ qemu-gdb: all
 	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
 	$(QEMU) $(QEMUOPTS) $(QEMUGDB)
 
+# qemu test
+qemu-test: test
+	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
+	$(QEMU) $(QEMUOPTS)
+
 # clean
 clean:
 	rm -rf $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_ASM_DEPS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_C_DEPS) $(TRUSTED_CORE_LIB)
-# test
-test:
-	@echo $(ROOT_DIR)
-	@echo $(TRUSTED_CORE_DIR)
-	@echo "asm objs" $(TRUSTED_CORE_ASM_OBJS)
-	@echo "asm files" $(TRUSTED_CORE_ASM_FILES)
+	cd $(TRUSTED_CORE_RUST_DIR) && cargo clean

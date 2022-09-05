@@ -137,6 +137,9 @@ pub mod kmem;
 pub mod pagetable;
 pub mod globalallocator_impl;
 
+#[cfg(kernel_test)]
+pub mod test_framework;
+
 #[no_mangle]
 // rust language entry point, C start() jumps here
 extern "C" fn rust_main() {
@@ -149,5 +152,9 @@ extern "C" fn rust_main() {
     timer::clint_init();
     pagetable_kernel.load();
     println!("safeOS is booting ...");
+
+    #[cfg(kernel_test)]
+    test_framework::test_main();
+    
     loop {}
 }
