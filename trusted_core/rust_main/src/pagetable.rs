@@ -1,5 +1,6 @@
 use bitflags::*;
 use crate::kmem::Kmem;
+use core::arch::asm;
 
 const PAGE_SIZE: usize = 0x1000;
 const PAGE_SIZE_BITS: usize = 0xc;
@@ -16,7 +17,7 @@ impl PageTable {
     pub fn new(mem:&mut Kmem) -> Self {
         let frame = mem.palloc(1).unwrap();
         PageTable {
-            root_ppn:(frame / PAGE_SIZE).into(),
+            root_ppn:PhysPageNum(frame / PAGE_SIZE),
         }
     }
     pub fn page_map(&mut self, vpn: usize, ppn: usize, flags: PTEFlags, mem: &mut Kmem) {
@@ -26,6 +27,13 @@ impl PageTable {
     pub fn page_unmap(&mut self, vpn: usize) {
         let pte = self.find_pte(vpn.into()).unwrap();
         *pte = PTE { bits: 0 };
+    }
+    pub fn load(&self) {
+        let satp = 8usize << 60 | self.root_ppn.0;
+        unsafe {
+            asm!("csrw satp, {0}", in(reg) satp);
+            asm!("sfence.vma");
+        }
     }
     fn find_pte_or_create(&mut self, vpn: VirtPageNum, mem: &mut Kmem) -> Option<&mut PTE> {
         let levels = vpn.levels();
@@ -39,7 +47,7 @@ impl PageTable {
             }
             if !pte.is_valid() {
                 let frame = mem.palloc(1).unwrap();
-                *pte = PTE::new((frame / PAGE_SIZE).into(), PTEFlags::V);
+                *pte = PTE::new(PhysPageNum(frame / PAGE_SIZE), PTEFlags::V);
             }
             ppn = pte.get_ppn();
         }
@@ -164,4 +172,14 @@ impl VirtPageNum {
     }
 }
 
+pub fn vpn_align_down(v: usize) -> VirtPageNum {
+    let vaddr:VirtAddr = v.into();
+    let vpn:VirtPageNum = vaddr.align_down();
+    vpn
+}
+pub fn vpn_align_up(v: usize) -> VirtPageNum {
+    let vaddr:VirtAddr = v.into();
+    let vpn:VirtPageNum = vaddr.align_up();
+    vpn
+}
 
