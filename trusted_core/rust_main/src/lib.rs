@@ -11,7 +11,7 @@ mod physmemallocator_slab;
 mod mutex;
 extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
-const KERNEL_BASE: usize = 0x80000000;
+const UART_END: usize = 0x1000_1000;
 // Macros for print
 #[macro_export]
 macro_rules! print
@@ -63,33 +63,66 @@ extern "C" fn abort() -> ! {
 }
 
 extern "C" {
-    fn etext();
-    fn sheap();
+    fn kernel_base();
+    fn text_end();
+    fn rodata_start();
+    fn rodata_end();
+    fn data_start();
+    fn data_end();
+    fn bss_start();
+    fn bss_end();
+    fn heap_start();
     fn end();
+    fn kernel_end();
 }
 
 fn vspace_init(mem:&mut Kmem) -> PageTable {
-    println!(".text [{:#x}, {:#x})", KERNEL_BASE, etext as usize);
-    println!(".data [{:#x}, {:#x})", etext as usize, sheap as usize);
-    println!("heap  [{:#x}, {:#x})", sheap as usize, end as usize);
+    println!(".text [{:#x}, {:#x})", kernel_base as usize, text_end as usize);
+    println!(".rodata [{:#x}, {:#x})", rodata_start as usize, rodata_end as usize);
+    println!(".data [{:#x}, {:#x})", data_start as usize, data_end as usize);
+    println!(".bss [{:#x}, {:#x})", bss_start as usize, bss_end as usize);
+    println!("heap  [{:#x}, {:#x})", heap_start as usize, end as usize);
 
     let mut pagetable_kernel = PageTable::new(mem);
-    let text_start:VirtAddr = KERNEL_BASE.into();
-    let text_start_align:VirtPageNum = text_start.align_down();
-
-    let text_end:VirtAddr = (etext as usize).into();
-    let text_end_align:VirtPageNum = text_end.align_up();
-
-    let data_start:VirtPageNum = text_end_align;
-    let heap_end:VirtAddr = (end as usize).into();
-    let heap_end_align:VirtPageNum = heap_end.align_up();
-
-    println!("mapping .text section");
-    for vpn in text_start_align.0..text_end_align.0 {
+    let mut start_temp:VirtPageNum = vpn_align_down(kernel_base as usize);
+    let mut end_temp:VirtPageNum = vpn_align_up(text_end as usize);
+    for vpn in start_temp.0..end_temp.0 {
         pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::X, mem);
     }
-    println!("mapping kernel data and the heap");
-    for vpn in data_start.0..heap_end_align.0 {
+
+    start_temp = vpn_align_down(rodata_start as usize);
+    end_temp = vpn_align_up(rodata_end as usize);
+    for vpn in start_temp.0..end_temp.0 {
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+    }
+
+    start_temp = vpn_align_down(data_start as usize);
+    end_temp = vpn_align_up(data_end as usize);
+    for vpn in start_temp.0..end_temp.0 {
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+    }
+
+    start_temp = vpn_align_down(bss_start as usize);
+    end_temp = vpn_align_up(bss_end as usize);
+    for vpn in start_temp.0..end_temp.0 {
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+    }
+
+    start_temp = vpn_align_down(heap_start as usize);
+    end_temp = vpn_align_up(end as usize);
+    for vpn in start_temp.0..end_temp.0 {
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+    }
+
+    start_temp = vpn_align_down(end as usize);
+    end_temp = vpn_align_up(kernel_end as usize);
+    for vpn in start_temp.0..end_temp.0 {
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+    }
+
+    start_temp = vpn_align_down(UART_BASE as usize);
+    end_temp = vpn_align_up(UART_END as usize);
+    for vpn in start_temp.0..end_temp.0 {
         pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
     }
     pagetable_kernel
@@ -110,10 +143,11 @@ extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(UART_BASE);
     my_uart.init();
     let mut mem = Kmem::new();
-    let _pagetable_kernel = vspace_init(&mut mem);
+    let pagetable_kernel = vspace_init(&mut mem);
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
     timer::clint_init();
+    pagetable_kernel.load();
     println!("safeOS is booting ...");
     loop {}
 }

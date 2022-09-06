@@ -9,8 +9,8 @@ const BASE_PAGE_SIZE: usize = 4096;
 const MAX_ALLOC_SIZE: usize = 1 << 17;
 
 extern "C" {
-    fn sheap();
-    fn eheap();
+    fn heap_start();
+    fn heap_end();
 }
 
 #[allow(dead_code)]
@@ -103,7 +103,7 @@ pub fn handle_alloc_error(layout: Layout) -> ! {
 
 
 pub fn init_mm() {
-    let physmem:PhysMemory = PhysMemory{base: sheap as *mut u8, size :(eheap as usize - sheap as usize)};
+    let physmem:PhysMemory = PhysMemory{base: heap_start as *mut u8, size :(heap_end as usize - heap_start as usize)};
     unsafe { PHYS_MEM_ALLOCATOR.buddyallocator.lock().init_region(physmem)};
 
 }
