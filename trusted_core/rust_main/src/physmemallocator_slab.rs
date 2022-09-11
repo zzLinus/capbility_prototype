@@ -30,11 +30,6 @@ impl<'a> Default for SlabPool<'a> {
                 SlabAllocator::new(1 << 10), // 1024
                 SlabAllocator::new(1 << 11), // 2048
                 SlabAllocator::new(1 << 12), // 4096
-                SlabAllocator::new(1 << 13), // 8192
-                SlabAllocator::new(1 << 14), // 16384
-                SlabAllocator::new(1 << 15), // 32767
-                SlabAllocator::new(1 << 16), // 65536
-                SlabAllocator::new(1 << 17), // 131072
             ],
         }
     }
@@ -42,7 +37,7 @@ impl<'a> Default for SlabPool<'a> {
 
 impl<'a> SlabPool<'a> {
 
-    const MAX_SLABALLOCATOR: usize = 15;
+    const MAX_SLABALLOCATOR: usize = 10;
 
     pub const fn new() -> SlabPool<'a> {
          SlabPool {
@@ -57,11 +52,6 @@ impl<'a> SlabPool<'a> {
                 SlabAllocator::new(1 << 10), // 1024
                 SlabAllocator::new(1 << 11), // 2048
                 SlabAllocator::new(1 << 12), // 4096
-                SlabAllocator::new(1 << 13), // 8192
-                SlabAllocator::new(1 << 14), // 16384
-                SlabAllocator::new(1 << 15), // 32767
-                SlabAllocator::new(1 << 16), // 65536
-                SlabAllocator::new(1 << 17), // 131072
             ],
         }
     }
@@ -77,11 +67,6 @@ impl<'a> SlabPool<'a> {
             513..=1024 => Slab::Base(7),
             1025..=2048 => Slab::Base(8),
             2049..=4096 => Slab::Base(9),
-            4097..=8192 => Slab::Base(10),
-            8193..=16384 => Slab::Base(11),
-            16385..=32767 => Slab::Base(12),
-            32768..=65536 => Slab::Base(13),
-            65537..=131_072 => Slab::Base(14),
             _ => Slab::Unsupported,
         }
     }
@@ -149,6 +134,10 @@ pub enum AllocationError {
     InvalidLayout,
 }
 
+const fn cmin(a: usize, b: usize) -> usize {
+    [a, b][(a > b) as usize]
+}
+
 pub struct SlabAllocator <'a, P: AllocablePage> {
     size: usize,
     // track of succeeded allocations
@@ -167,7 +156,7 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
         SlabAllocator {
             size: size,
             allocation_count: 0,
-            per_page_max_obj: 0,
+            per_page_max_obj:cmin((P::SIZE -80)/size, 256 ),
             free_slabs: PageList::new(),
             partial_slabs: PageList::new(),
             full_slabs: PageList::new(),

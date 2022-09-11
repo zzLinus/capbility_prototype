@@ -6,7 +6,7 @@ use core::mem::transmute;
 use core::ptr::NonNull;
 
 const BASE_PAGE_SIZE: usize = 4096;
-const MAX_ALLOC_SIZE: usize = 1 << 17;
+const BASE_ALLOC_SIZE: usize = 2048;
 
 extern "C" {
     fn heap_start();
@@ -38,20 +38,18 @@ unsafe impl GlobalAlloc for PhysMemAllocator {
                     .allocate(layout);
                 frame
             }
-            0..= MAX_ALLOC_SIZE => {
+            0..= BASE_ALLOC_SIZE => {
                 let mut slaballocator = self.slaballocator.lock();
                 match slaballocator.allocate(layout) {
                     Ok(ptr) => ptr.as_ptr(),
                     Err(AllocationError::OutOfMemory) => {
                         // If outofmemory, slaballocator needs to request
                         // new frames from the buddyallocator
-                        if layout.size() <= MAX_ALLOC_SIZE {
+                        if layout.size() <= BASE_ALLOC_SIZE {
                             let frame = buddyallocator.allocate(layout);
                             slaballocator
                                 .refill(layout, transmute(frame as usize))
                                 .expect("Failed to refill slaballocator")
-                        } else {
-                            panic!("Larger than max_alloc_size");
                         }
                         slaballocator
                             .allocate(layout)
@@ -77,12 +75,12 @@ unsafe impl GlobalAlloc for PhysMemAllocator {
             BASE_PAGE_SIZE => {
                 buddyallocator.deallocate(frame, layout);
             }
-            0..= MAX_ALLOC_SIZE => {
+            0..= BASE_ALLOC_SIZE => {
                 if let Some(nptr) = NonNull::new(ptr) {
                     let mut slaballocator = self.slaballocator.lock();
                     slaballocator
                         .deallocate(nptr, layout)
-                        .expect("Failed to deallocate (ZoneAllocator)");
+                        .expect("Failed to deallocate");
                 } else {
                 }
             }
