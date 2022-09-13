@@ -148,8 +148,9 @@ extern "C" fn rust_main() {
     let mut mem = Kmem::new();
     let pagetable_kernel = vspace_init(&mut mem);
     globalallocator_impl::init_mm();
-    cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    timer::clint_init();
+    // disable timer temporarily. To do: bug fix.
+    // cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
+    // timer::clint_init();
     pagetable_kernel.load();
     println!("safeOS is booting ...");
 
