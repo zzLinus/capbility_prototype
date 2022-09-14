@@ -17,7 +17,6 @@ pub const PAGE_NUM: usize = 25600;
 pub const PAGE_ADDR: usize = 0x85000000;
 pub const PAGE_SIZE: usize = 0x1000;
 
-
 #[allow(dead_code)]
 pub struct Kmem {
     pub base_addr: usize,
@@ -105,6 +104,7 @@ impl Kmem {
     pub fn pfree(&mut self, addr: usize, size: usize) {
         let begin = (addr - self.base_addr) / PAGE_SIZE;
         self.set_bits(begin, size, true);
+        self.total = self.total + size;
     }
 
     pub fn format_print(&self) {
