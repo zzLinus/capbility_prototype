@@ -117,3 +117,87 @@ impl Kmem {
         return self.bitmap[row];
     }
 }
+
+#[cfg(kernel_test)]
+use crate::test_framework;
+
+#[cfg(kernel_test)]
+use crate::mutex::MutexGuard;
+
+#[cfg(kernel_test)]
+pub fn test_kmem() -> test_framework::TestResult{
+    let mut result = test_framework::TestResult{passed:0, failed:0};
+    let mut kmem = KMEM.lock();
+    println!("test kmem:");
+    if test_palloc_pfree_sequence(&mut kmem) { result.passed += 1; println!("passed!");} else { result.failed += 1; println!("failed!");}
+    if test_palloc_pfree_random(&mut kmem) { result.passed += 1; println!("passed!");} else { result.failed += 1; println!("failed!");}
+    
+    result
+}
+
+#[cfg(kernel_test)]
+//Check whether the status of the size page starting from begin is flag
+pub fn check_bitmap(kmem: &mut MutexGuard<Kmem>, begin:usize, size: usize, flag: bool) -> bool {
+    let (mut row, mut col) = kmem.num2coordinate(begin);
+    for _i in 0..size {
+        if (kmem.get_bitmap(row) & PATTERN[col] == PATTERN[col]) == flag {
+            col += 1;
+            if col > 7 {
+                col = 0;
+                row += 1;
+            }
+            continue;
+        }else{
+            return false;
+        }
+    }
+    true
+}
+
+#[cfg(kernel_test)]
+pub fn test_palloc_pfree_sequence(kmem: &mut MutexGuard<Kmem>) -> bool {
+    println!("test_palloc_free_sequence");
+    for i in 1..100 {
+        let size = i;
+        let begin = kmem.find_begin(size);
+        match begin {
+            Some(x) => {
+                match kmem.palloc(size) {
+                    Some(y) => {
+                        if !check_bitmap(kmem, x, size, false) { return false;}
+                        kmem.pfree(y, size);
+                        if !check_bitmap(kmem, x, size, true) { return false;}
+                    },
+                    None => {return false;}
+                }
+            },
+            None => {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+#[cfg(kernel_test)]
+pub fn test_palloc_pfree_random(kmem: &mut MutexGuard<Kmem>) -> bool {
+    let array = [1, 10, 100, 200, 500, 1000, 25600/3, 25600/2];
+    println!("test_palloc_pfree_random");
+    match kmem.palloc(array[2]){
+        Some(x) => {
+            kmem.palloc(array[2]);
+            kmem.pfree(x, array[2]);
+            if kmem.find_begin(array[2]/2).unwrap() != 0 {
+                return false;
+            }
+            if kmem.find_begin(array[2]).unwrap() != 0 {
+                return false;
+            }
+            if kmem.find_begin(array[2]+1).unwrap() != 200 {
+                return false;
+            }
+        },
+        None => { return false;}
+    }
+    true
+}
