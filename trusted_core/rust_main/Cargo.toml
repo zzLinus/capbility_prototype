@@ -10,3 +10,5 @@ crate-type = ["staticlib"]
 
 [dependencies]
 bitflags = "1.2.1"
+rand = { version = "0.8.5", default-features = false }
+rand_pcg = "0.3.1"
