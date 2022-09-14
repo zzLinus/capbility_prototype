@@ -1,3 +1,7 @@
+use crate::mutex::Mutex;
+
+pub static KMEM: Mutex<Kmem> = Mutex::new(Kmem::new());
+
 pub static PATTERN: [u8; 8] = [
     0b1000_0000,
     0b0100_0000,
@@ -13,6 +17,7 @@ pub const PAGE_NUM: usize = 25600;
 pub const PAGE_ADDR: usize = 0x85000000;
 pub const PAGE_SIZE: usize = 0x1000;
 
+
 #[allow(dead_code)]
 pub struct Kmem {
     pub base_addr: usize,
@@ -24,8 +29,8 @@ pub struct Kmem {
 
 #[allow(dead_code)]
 impl Kmem {
-    pub fn new() -> Kmem {
-        Kmem {
+    pub const fn new() -> Kmem {
+        Self{
             base_addr: PAGE_ADDR,
             bitmap: [0b1111_1111; PAGE_NUM / 8],
             front: 0,
@@ -34,15 +39,16 @@ impl Kmem {
         }
     }
 
-    fn num2coordinate(&self, num: usize) -> (usize, usize) {
+
+    fn num2coordinate(&mut self, num: usize) -> (usize, usize) {
         (num / 8, num % 8)
     }
 
-    fn find_begin(&self, size: usize) -> Option<usize> {
+    fn find_begin(&mut self, size: usize) -> Option<usize> {
         let mut sum = 0;
         let mut begin = self.front;
         let (mut row, mut col) = self.num2coordinate(self.front);
-        while begin < PAGE_NUM - size {
+        while begin <= PAGE_NUM - size {
             if self.bitmap[row] & PATTERN[col] > 0 {
                 sum += 1;
                 if sum == size {
@@ -105,5 +111,9 @@ impl Kmem {
         for i in 0..PAGE_NUM / 8 {
             println!("{:#010b}", self.bitmap[i]);
         }
+    }
+    
+    pub fn get_bitmap(&self, row: usize) -> u8 {
+        return self.bitmap[row];
     }
 }
