@@ -156,6 +156,6 @@ extern "C" fn rust_main() {
 
     #[cfg(kernel_test)]
     test_framework::test_main();
-    
+
     loop {}
 }
