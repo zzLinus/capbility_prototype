@@ -625,3 +625,242 @@ impl Bitfield for [AtomicU64] {
         true
     }
 }
+
+#[cfg(kernel_test)]
+pub mod slab_tests {
+    use crate::{println, print};
+    use crate::test_framework::TestResult;
+    use crate::globalallocator_impl::PHYS_MEM_ALLOCATOR;
+    use alloc::string::String;
+    use alloc::vec::Vec;
+    use core::alloc::{GlobalAlloc, Layout};
+    use rand::RngCore;
+
+    const MEANINGLESS_NUM: u64 = 0x1234_5678_90ab_cdef; // A meaningless numbers for read and write tests
+    const MAX_CHUNK_SIZE: usize = 0x200_0000; // The maximum memory size that the system can allocate at one time
+
+    enum SlabTestResult {
+        Ok,
+        Err
+    }
+    struct SlabTestElem (fn() -> SlabTestResult, String);
+
+    // Print 80 spaces to clear what was printed in this line,
+    // then return to the beginning of this line
+    fn clean_line() {
+        print!("                                                                                ");
+        print!("\r");
+    }
+
+    pub fn slab_test_main() -> TestResult {
+        let tests = [
+        // Add your test function here. In the form of:
+        // SlabTestElem(your_test_name, String::from("your_test_name")),
+            SlabTestElem(alloc_basic_size, String::from("alloc_basic_size")),
+            SlabTestElem(alloc_critical_size, String::from("alloc_critical_size")),
+            SlabTestElem(alloc_max_size_chunk, String::from("alloc_max_size_chunk")),
+            SlabTestElem(alloc_random_size, String::from("alloc_random_size")),
+            SlabTestElem(alloc_multiple_times, String::from("alloc_multiple_times")),
+        ];
+
+        let mut passed_count = 0;
+        let mut failed_count = 0;
+
+        for test in tests {
+            println!("[test {}]", test.1);
+            match test.0() {
+                SlabTestResult::Ok => {
+                    clean_line();
+                    println!("\x1b[32mpassed\x1b[0m");
+                    passed_count += 1;
+                },
+                SlabTestResult::Err => {
+                    clean_line();
+                    println!("\x1b[31mfailed\x1b[0m");
+                    failed_count += 1;
+                }
+            }
+        }
+
+        TestResult { passed: passed_count, failed: failed_count }
+    }
+
+    fn single_test(layout: Layout) -> SlabTestResult {
+        print!("size:{}; align:{};", layout.size(), layout.align());
+        unsafe {
+            let p = PHYS_MEM_ALLOCATOR.alloc(layout);
+            print!(" addr:{:p}", p);
+            *(p as *mut u64) = MEANINGLESS_NUM;
+            if *(p as *mut u64) != MEANINGLESS_NUM {
+                println!("\nError: read or write failed.");
+                return SlabTestResult::Err;
+            }
+            PHYS_MEM_ALLOCATOR.dealloc(p, layout);
+        }
+        clean_line();
+        SlabTestResult::Ok
+    }
+
+    #[allow(unused)]
+    fn alloc_basic_size() -> SlabTestResult {
+        let mut is_passed = true;
+
+        for size in 1..=65 {
+            for align_exp in 1..=6 {
+                let align = 1 << align_exp;
+                if align > size {
+                    continue;
+                }
+                match single_test(Layout::from_size_align(size, align).unwrap()) {
+                    SlabTestResult::Err => {
+                        is_passed = false;
+                    }
+                    SlabTestResult::Ok => {}
+                }
+            }
+        }
+
+        if is_passed {
+            SlabTestResult::Ok
+        } else {
+            SlabTestResult::Err
+        }
+    }
+
+    #[allow(unused)]
+    fn alloc_critical_size() -> SlabTestResult {
+        let layouts = [
+            Layout::from_size_align(127usize, 1usize).unwrap(),
+            Layout::from_size_align(128usize, 1usize).unwrap(),
+            Layout::from_size_align(128usize, 128usize).unwrap(),
+            Layout::from_size_align(129usize, 1usize).unwrap(),
+            Layout::from_size_align(255usize, 1usize).unwrap(),
+            Layout::from_size_align(256usize, 1usize).unwrap(),
+            Layout::from_size_align(256usize, 256usize).unwrap(),
+            Layout::from_size_align(127usize, 1usize).unwrap(),
+            Layout::from_size_align(511usize, 1usize).unwrap(),
+            Layout::from_size_align(512usize, 1usize).unwrap(),
+            Layout::from_size_align(512usize, 512usize).unwrap(),
+            Layout::from_size_align(513usize, 1usize).unwrap(),
+            Layout::from_size_align(1023usize, 1usize).unwrap(),
+            Layout::from_size_align(1024usize, 1usize).unwrap(),
+            Layout::from_size_align(1024usize, 1024usize).unwrap(),
+            Layout::from_size_align(1025usize, 1usize).unwrap(),
+            Layout::from_size_align(2047usize, 1usize).unwrap(),
+            Layout::from_size_align(2048usize, 1usize).unwrap(),
+            Layout::from_size_align(2049usize, 1usize).unwrap(),
+            Layout::from_size_align(4095usize, 1usize).unwrap(),
+            Layout::from_size_align(4096usize, 1usize).unwrap(),
+            Layout::from_size_align(4097usize, 1usize).unwrap(),
+            Layout::from_size_align(8191usize, 1usize).unwrap(),
+            Layout::from_size_align(8192usize, 1usize).unwrap(),
+            Layout::from_size_align(8193usize, 1usize).unwrap(),
+            Layout::from_size_align(16383usize, 1usize).unwrap(),
+            Layout::from_size_align(16384usize, 1usize).unwrap(),
+            Layout::from_size_align(16385usize, 1usize).unwrap(),
+        ];
+        let mut is_passed = true;
+
+        for layout in layouts.iter() {
+            match single_test(layout.clone()) {
+                SlabTestResult::Err => {
+                    is_passed = false;
+                }
+                SlabTestResult::Ok => {}
+            } 
+        }
+
+        if is_passed {
+            SlabTestResult::Ok
+        } else {
+            SlabTestResult::Err
+        }
+    }
+
+    #[allow(unused)]
+    fn alloc_max_size_chunk() -> SlabTestResult {
+        struct LargeChunk {
+            chunk: [i8; MAX_CHUNK_SIZE],
+        }
+        single_test(Layout::new::<LargeChunk>())
+    }
+
+    #[allow(unused)]
+    fn alloc_random_size() -> SlabTestResult {
+        let mut rng = rand_pcg::Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7); // PCG default values
+        let mut is_passed = true;
+
+        // Each round tests a random size in the range 1-n 10 times, where n grows
+        // from 2^4 and is multiplied by 2 each round until the maximum size is reached.
+        let mut shift = 4;
+        while MAX_CHUNK_SIZE >= (1 << shift) {
+            for _ in 0..=10 {
+                match single_test(Layout::from_size_align(((rng.next_u32() as usize) % (1 << shift)) + 1, 1).unwrap()) {
+                    SlabTestResult::Err => {
+                        is_passed = false;
+                    }
+                    SlabTestResult::Ok => {}
+                }
+            }
+            shift += 1;
+        }
+
+        if is_passed {
+            SlabTestResult::Ok
+        } else {
+            SlabTestResult::Err
+        }
+    }
+
+    #[allow(unused)]
+    fn alloc_multiple_times() -> SlabTestResult {
+        // The current system can allocate 16384 pages. Since some pages may have
+        // been allocated, 16000 pages are allocated here. Each TestChunk contains
+        // 16 pages.
+        struct TestChunk {
+            data: [u32; 16384],
+        }
+        const MAX_CHUNKS: u32 = 1000;
+
+        let layout = Layout::new::<TestChunk>();
+
+        println!("chunk_size:{}; align:{}", layout.size(), layout.align());
+        for _ in 0..=1 {
+            let mut v = Vec::new();
+            clean_line();
+            for n in 0..=MAX_CHUNKS {
+                unsafe {
+                    let p = PHYS_MEM_ALLOCATOR.alloc(layout);
+                    print!("alloc_chunk_count:{};", n);
+                    print!(" addr:{:p}", p);
+                    if *(p as *mut u64) == MEANINGLESS_NUM {
+                        println!("\nError: memory contains previous data.");
+                        return SlabTestResult::Err;
+                    }
+                    *(p as *mut u64) = MEANINGLESS_NUM;
+                    if *(p as *mut u64) != MEANINGLESS_NUM {
+                        println!("\nError: read or write failed.");
+                        return SlabTestResult::Err;
+                    }
+                    v.push(p);
+                    print!("\r");
+                }
+            }
+            clean_line();
+            println!("Complete {}-chunk allocation.", MAX_CHUNKS);
+            let mut n = 0;
+            for p in &v {
+                unsafe {
+                    print!("dealloc_chunk_count:{};", n);
+                    print!(" addr:{:p}", *p);
+                    PHYS_MEM_ALLOCATOR.dealloc(*p, layout);
+                    print!("\r");
+                    n += 1;
+                }
+            }
+            clean_line();
+            println!("Complete {}-chunk deallocation.", MAX_CHUNKS);
+        }
+        SlabTestResult::Ok
+    }
+}
