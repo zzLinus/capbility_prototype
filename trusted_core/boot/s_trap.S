@@ -8,12 +8,13 @@ s_trap_vector:
 	csrrw	sp, sscratch, sp
 
 	STORE ra, 1*REGBYTES(sp)
-	STORE sp, 2*REGBYTES(sp)
 	STORE gp, 3*REGBYTES(sp)
 	STORE tp, 4*REGBYTES(sp)
 	STORE t0, 5*REGBYTES(sp)
 	STORE t1, 6*REGBYTES(sp)
 	STORE t2, 7*REGBYTES(sp)
+	STORE s0, 8*REGBYTES(sp)
+	STORE s1, 9*REGBYTES(sp)
 	STORE a0, 10*REGBYTES(sp)
 	STORE a1, 11*REGBYTES(sp)
 	STORE a2, 12*REGBYTES(sp)    
@@ -22,6 +23,10 @@ s_trap_vector:
 	STORE a5, 15*REGBYTES(sp)
 	STORE a6, 16*REGBYTES(sp)
 	STORE a7, 17*REGBYTES(sp)
+	STORE s2, 18*REGBYTES(sp)
+	STORE s3, 19*REGBYTES(sp)
+	STORE s4, 20*REGBYTES(sp)
+	STORE s5, 21*REGBYTES(sp)
 	STORE s6, 22*REGBYTES(sp)
 	STORE s7, 23*REGBYTES(sp)
 	STORE s8, 24*REGBYTES(sp)
@@ -33,18 +38,18 @@ s_trap_vector:
 	STORE t5, 30*REGBYTES(sp)
 	STORE t6, 31*REGBYTES(sp)
 
-	LOAD s0, 2*REGBYTES(sp)
+	csrr s0, sscratch
 	csrr s1, sstatus
 	csrr s2, sepc
 	csrr s3, stval
 	csrr s4, scause
-	csrr s5, sscratch
-	STORE s0, 8*REGBYTES(sp)
-	STORE s1, 9*REGBYTES(sp)
-	STORE s2, 18*REGBYTES(sp)
-	STORE s3, 19*REGBYTES(sp)
-	STORE s4, 20*REGBYTES(sp)
-	STORE s5, 21*REGBYTES(sp)
+	addi s5, sp, 0
+	STORE s0, 2*REGBYTES(sp)
+	STORE s1, 32*REGBYTES(sp)
+	STORE s2, 33*REGBYTES(sp)
+	STORE s3, 34*REGBYTES(sp)
+	STORE s4, 35*REGBYTES(sp)
+	STORE s5, 36*REGBYTES(sp)
 
 	call s_trap
 
