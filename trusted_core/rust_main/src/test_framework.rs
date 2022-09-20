@@ -1,7 +1,11 @@
 #![cfg(kernel_test)]
 
 use alloc::string::*;
+
 use crate::kmem::test_kmem;
+
+use crate::pagetable::pagetable_test;
+
 use crate::physmemallocator_slab::slab_tests::slab_test_main;
 
 pub struct TestResult {
@@ -15,7 +19,11 @@ pub fn test_main() {
         // Add your general test function here. In the form of:
         // TestlistElem(your_test_name, String::from("your_test_name")),
         TestlistElem(test_framework_default, String::from("test_framework_default")),
+
         TestlistElem(test_kmem, String::from("test_kmem")),
+
+        TestlistElem(pagetable_test, String::from("pagetable_test")),
+
         TestlistElem(slab_test_main, String::from("slab_test_main")),
     ];
 

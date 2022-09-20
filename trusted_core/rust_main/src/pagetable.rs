@@ -182,3 +182,246 @@ pub fn vpn_align_up(v: usize) -> VirtPageNum {
     let vpn: VirtPageNum = vaddr.align_up();
     vpn
 }
+
+#[cfg(kernel_test)]
+use crate::test_framework::TestResult;
+
+#[cfg(kernel_test)]
+pub fn pagetable_test() -> TestResult {
+    let mut testresult = TestResult {
+        passed: 0,
+        failed: 0,
+    };
+
+    if pagetable_page_map_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+    if pagetable_page_unmap_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+
+    if pte_new_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+    if pte_get_ppn_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+    if pte_get_flags_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+    if pte_is_valid_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+    if virt_page_num_levels_test() {
+        testresult.passed += 1;
+    } else {
+        testresult.failed += 1;
+    }
+
+    testresult
+}
+
+#[cfg(kernel_test)]
+pub fn pagetable_page_map_test() -> bool {
+    println!("Pagetable::page_map");
+    let vpn = 200;
+    let mut pagetable = PageTable::new();
+    pagetable.page_map(vpn, 200, PTEFlags::V);
+
+    let p = pagetable.find_pte(vpn.into()).unwrap();
+    let ppn = p.get_ppn().0;
+    if ppn != 200 {
+        println!("failed");
+        return false;
+    }
+    println!("pass");
+    true
+}
+#[cfg(kernel_test)]
+pub fn pagetable_page_unmap_test() -> bool {
+    println!("Pagetable::page_unmap");
+    let mut vpn = 1;
+    let mut ppn = 0x10000000;
+    let mut pagetable = PageTable::new();
+    for i in 1..50000 {
+        vpn += 1;
+        ppn += 2;
+        pagetable.page_map(vpn, ppn, PTEFlags::V);
+        let p = pagetable.find_pte(vpn.into()).unwrap().get_ppn().0;
+        if p != ppn {
+            println!("failed");
+            return false;
+        }
+        // println!("{} {:#x} -> {:#x}", i, vpn, ppn);
+        // print this in QEMU will not get all data, but if you donot print this, it runs well.
+
+        pagetable.page_unmap(vpn);
+        let p = pagetable.find_pte(vpn.into()).unwrap().get_ppn().0;
+        if p != 0 {
+            println!("failed");
+            return false;
+        }
+    }
+
+    println!("pass");
+    true
+}
+
+#[cfg(kernel_test)]
+pub fn pte_new_test() -> bool {
+    println!("PTE::new");
+    let p = PTE::new(0x1000.into(), PTEFlags::U);
+    if p.bits != 0x1000 << 10 | PTEFlags::U.bits as usize {
+        println!("failed");
+        return false;
+    }
+    let p = PTE::new(0x1000.into(), PTEFlags::R);
+    if p.bits != 0x1000 << 10 | PTEFlags::R.bits as usize {
+        println!("failed");
+        return false;
+    }
+
+    println!("pass");
+    true
+}
+#[cfg(kernel_test)]
+pub fn pte_get_ppn_test() -> bool {
+    println!("PTE::get_ppn");
+    for i in 1..1024 {
+        let pte = PTE { bits: i };
+        if pte.get_ppn().0 != 0 {
+            println!("failed");
+            return false;
+        }
+    }
+    for i in 1..1024 {
+        let pte = PTE { bits: i << 10 };
+        if pte.get_ppn().0 != i {
+            println!("failed");
+            return false;
+        }
+    }
+    for i in 1..1024 {
+        let pte = PTE { bits: i << 20 };
+        if pte.get_ppn().0 != (i << 10) {
+            println!("failed");
+            return false;
+        }
+    }
+    for i in 1..1024 {
+        let pte = PTE { bits: i << 60 };
+
+        if pte.get_ppn().0 != 0 {
+            println!("failed");
+            return false;
+        }
+    }
+    println!("pass");
+    true
+}
+#[cfg(kernel_test)]
+pub fn pte_get_flags_test() -> bool {
+    println!("PTE::nget_flags");
+    let p = PTE { bits: 1 };
+    if p.get_flags() != PTEFlags::V {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::R.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::R {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::W.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::W {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::X.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::X {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::U.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::U {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::G.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::G {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::A.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::A {
+        println!("failed");
+        return false;
+    }
+    let p = PTE {
+        bits: PTEFlags::D.bits as usize,
+    };
+    if p.get_flags() != PTEFlags::D {
+        println!("failed");
+        return false;
+    }
+
+    println!("pass");
+    true
+}
+#[cfg(kernel_test)]
+pub fn pte_is_valid_test() -> bool {
+    println!("PTE::is_valid");
+    let p = PTE { bits: 1 };
+    if !p.is_valid() {
+        println!("failed");
+        return false;
+    }
+    let p = PTE { bits: 0 };
+    if p.is_valid() {
+        println!("failed");
+        return false;
+    }
+    println!("pass");
+    true
+}
+
+#[cfg(kernel_test)]
+pub fn virt_page_num_levels_test() -> bool {
+    println!("VirtPageNum::levels");
+    for i in 1..500 {
+        let vpn = VirtPageNum(i | i << 9 | i << 18);
+        let levels = vpn.levels();
+
+        if levels[0] != i || levels[1] != i || levels[2] != i {
+            println!("failed");
+            return false;
+        }
+    }
+
+    println!("pass");
+    true
+}
