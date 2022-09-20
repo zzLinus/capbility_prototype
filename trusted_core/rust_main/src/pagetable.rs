@@ -1,5 +1,5 @@
+use crate::kmem::KMEM;
 use bitflags::*;
-use crate::kmem::Kmem;
 use core::arch::asm;
 
 const PAGE_SIZE: usize = 0x1000;
@@ -14,14 +14,14 @@ pub struct PageTable {
 }
 
 impl PageTable {
-    pub fn new(mem:&mut Kmem) -> Self {
-        let frame = mem.palloc(1).unwrap();
+    pub fn new() -> Self {
+        let frame = KMEM.lock().palloc(1).unwrap();
         PageTable {
-            root_ppn:PhysPageNum(frame / PAGE_SIZE),
+            root_ppn: PhysPageNum(frame / PAGE_SIZE),
         }
     }
-    pub fn page_map(&mut self, vpn: usize, ppn: usize, flags: PTEFlags, mem: &mut Kmem) {
-        let pte = self.find_pte_or_create(vpn.into(), mem).unwrap();
+    pub fn page_map(&mut self, vpn: usize, ppn: usize, flags: PTEFlags) {
+        let pte = self.find_pte_or_create(vpn.into()).unwrap();
         *pte = PTE::new(ppn.into(), flags | PTEFlags::V);
     }
     pub fn page_unmap(&mut self, vpn: usize) {
@@ -35,7 +35,7 @@ impl PageTable {
             asm!("sfence.vma");
         }
     }
-    fn find_pte_or_create(&mut self, vpn: VirtPageNum, mem: &mut Kmem) -> Option<&mut PTE> {
+    fn find_pte_or_create(&mut self, vpn: VirtPageNum) -> Option<&mut PTE> {
         let levels = vpn.levels();
         let mut ppn = self.root_ppn;
         let mut result: Option<&mut PTE> = None;
@@ -46,7 +46,7 @@ impl PageTable {
                 break;
             }
             if !pte.is_valid() {
-                let frame = mem.palloc(1).unwrap();
+                let frame = KMEM.lock().palloc(1).unwrap();
                 *pte = PTE::new(PhysPageNum(frame / PAGE_SIZE), PTEFlags::V);
             }
             ppn = pte.get_ppn();
@@ -156,7 +156,7 @@ impl VirtAddr {
 impl PhysPageNum {
     fn get_pte_array(&self) -> &'static mut [PTE] {
         let pa: PhysAddr = (*self).into();
-        unsafe{ core::slice::from_raw_parts_mut(pa.0 as *mut PTE, 512) }
+        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PTE, 512) }
     }
 }
 
@@ -173,13 +173,12 @@ impl VirtPageNum {
 }
 
 pub fn vpn_align_down(v: usize) -> VirtPageNum {
-    let vaddr:VirtAddr = v.into();
-    let vpn:VirtPageNum = vaddr.align_down();
+    let vaddr: VirtAddr = v.into();
+    let vpn: VirtPageNum = vaddr.align_down();
     vpn
 }
 pub fn vpn_align_up(v: usize) -> VirtPageNum {
-    let vaddr:VirtAddr = v.into();
-    let vpn:VirtPageNum = vaddr.align_up();
+    let vaddr: VirtAddr = v.into();
+    let vpn: VirtPageNum = vaddr.align_up();
     vpn
 }
-

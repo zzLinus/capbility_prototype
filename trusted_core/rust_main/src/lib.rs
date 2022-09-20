@@ -5,7 +5,6 @@
 #[warn(dead_code)]
 use core::arch::asm;
 use crate::pagetable::*;
-use crate::kmem::Kmem;
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 mod mutex;
@@ -76,54 +75,54 @@ extern "C" {
     fn kernel_end();
 }
 
-fn vspace_init(mem:&mut Kmem) -> PageTable {
+fn vspace_init() -> PageTable {
     println!(".text [{:#x}, {:#x})", kernel_base as usize, text_end as usize);
     println!(".rodata [{:#x}, {:#x})", rodata_start as usize, rodata_end as usize);
     println!(".data [{:#x}, {:#x})", data_start as usize, data_end as usize);
     println!(".bss [{:#x}, {:#x})", bss_start as usize, bss_end as usize);
     println!("heap  [{:#x}, {:#x})", heap_start as usize, end as usize);
 
-    let mut pagetable_kernel = PageTable::new(mem);
+    let mut pagetable_kernel = PageTable::new();
     let mut start_temp:VirtPageNum = vpn_align_down(kernel_base as usize);
     let mut end_temp:VirtPageNum = vpn_align_up(text_end as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::X, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::X);
     }
 
     start_temp = vpn_align_down(rodata_start as usize);
     end_temp = vpn_align_up(rodata_end as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
     start_temp = vpn_align_down(data_start as usize);
     end_temp = vpn_align_up(data_end as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
     start_temp = vpn_align_down(bss_start as usize);
     end_temp = vpn_align_up(bss_end as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
     start_temp = vpn_align_down(heap_start as usize);
     end_temp = vpn_align_up(end as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
     start_temp = vpn_align_down(end as usize);
     end_temp = vpn_align_up(kernel_end as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
     start_temp = vpn_align_down(UART_BASE as usize);
     end_temp = vpn_align_up(UART_END as usize);
     for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W, mem);
+        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
     pagetable_kernel
 }
@@ -145,8 +144,7 @@ pub mod test_framework;
 extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(UART_BASE);
     my_uart.init();
-    let mut mem = Kmem::new();
-    let pagetable_kernel = vspace_init(&mut mem);
+    let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
     // disable timer temporarily. To do: bug fix.
     // cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
