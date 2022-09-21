@@ -2,6 +2,7 @@
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
+#![feature(core_intrinsics)]
 #[warn(dead_code)]
 use core::arch::asm;
 use crate::pagetable::*;
