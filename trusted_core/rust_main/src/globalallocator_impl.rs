@@ -6,7 +6,10 @@ use core::mem::transmute;
 use core::ptr::NonNull;
 
 const BASE_PAGE_SIZE: usize = 4096;
+const HUGE_PAGE_SIZE: usize = 2 * 1024 *1024;
 const BASE_ALLOC_SIZE: usize = 2048;
+const HUGE_ALLOC_SIZE: usize = 2049;
+const MAX_ALLOC_SIZE: usize = 1 << 17;
 
 extern "C" {
     fn heap_start();
@@ -48,8 +51,34 @@ unsafe impl GlobalAlloc for PhysMemAllocator {
                         if layout.size() <= BASE_ALLOC_SIZE {
                             let frame = buddyallocator.allocate(layout);
                             slaballocator
-                                .refill(layout, transmute(frame as usize))
+                                .refill_base(layout, transmute(frame as usize))
                                 .expect("Failed to refill slaballocator")
+                        }
+                        slaballocator
+                            .allocate(layout)
+                            .expect("Still filed to allocate")
+                            .as_ptr()
+                    }
+                    Err(AllocationError::InvalidLayout) => {
+                        panic!("Invaild layout size")
+                    }
+                }
+            }
+            HUGE_ALLOC_SIZE..= MAX_ALLOC_SIZE => {
+                let mut slaballocator = self.slaballocator.lock();
+                match slaballocator.allocate(layout) {
+                    Ok(ptr) => ptr.as_ptr(),
+                    Err(AllocationError::OutOfMemory) => {
+                        if layout.size() <= MAX_ALLOC_SIZE {
+                            let huge_layout = Layout::from_size_align_unchecked(HUGE_PAGE_SIZE, layout.align());
+                            let frame = buddyallocator.allocate(huge_layout);
+                            if frame.is_null() {
+                                panic!("Out of Memory")
+                            } else {
+                                slaballocator
+                                    .refill_large(layout, transmute(frame as usize))
+                                    .expect("Failed to refill slaballocator")
+                            }
                         }
                         slaballocator
                             .allocate(layout)
@@ -75,7 +104,7 @@ unsafe impl GlobalAlloc for PhysMemAllocator {
             BASE_PAGE_SIZE => {
                 buddyallocator.deallocate(frame, layout);
             }
-            0..= BASE_ALLOC_SIZE => {
+            0..= MAX_ALLOC_SIZE => {
                 if let Some(nptr) = NonNull::new(ptr) {
                     let mut slaballocator = self.slaballocator.lock();
                     slaballocator

@@ -7,19 +7,29 @@ use core::fmt;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicU64, Ordering};
 use core::ptr;
+use core::intrinsics::wrapping_sub;
+use crate::physmemallocator_buddy::CalculateOf2;
 
-const BALANCE_COUNT: usize = 64;
-const BASIC_SIZE: usize = 80;
-const FOUR_K_SIZE: usize = 4096;
+const BALANCE_COUNT: usize = 64;   // Balance the number of objects in the three slab_lists
+const META_DATA_SIZE: usize = 80;
+const MIN_BASE_OBJECTS_SIZE: usize = 8;
+const MIN_BASE_OBJECTS_POWER: usize = 3;
+const MAX_BASE_OBJECTS_SIZE: usize = 2048;
+const MIN_LARGE_ALLOC_SIZE: usize = 2049;
+const MAX_LARGE_OBJECTS_SIZE: usize = 131072;
+const BASE_PAGE_SIZE: usize = 4096;
+const BASE_PAGE_POWER: usize = 12;
+const LARGE_PAGE_SIZE: usize = 2 * 1024 *1024;
 
 pub struct SlabPool<'a> {
-    slabs: [SlabAllocator<'a, PageObject<'a>>; SlabPool::MAX_SLABALLOCATOR],
+    base_slabs: [SlabAllocator<'a, PageObject<'a>>; SlabPool::MAX_BASE_SLABALLOCATOR],
+    large_slabs: [SlabAllocator<'a, LargePageObject<'a>>; SlabPool::MAX_LARGE_SLABALLOCATOR]
 }
 
 impl<'a> Default for SlabPool<'a> {
     fn default() -> SlabPool<'a> {
         SlabPool {
-            slabs: [
+            base_slabs: [
                 SlabAllocator::new(1 << 3), // 8
                 SlabAllocator::new(1 << 4), // 16
                 SlabAllocator::new(1 << 5), // 32
@@ -29,19 +39,27 @@ impl<'a> Default for SlabPool<'a> {
                 SlabAllocator::new(1 << 9),  // 512
                 SlabAllocator::new(1 << 10), // 1024
                 SlabAllocator::new(1 << 11), // 2048
-                SlabAllocator::new(1 << 12), // 4096
             ],
+            large_slabs: [
+                SlabAllocator::new(1 << 12), // 4096
+                SlabAllocator::new(1 << 13), // 8192
+                SlabAllocator::new(1 << 14), // 16384
+                SlabAllocator::new(1 << 15), // 32768
+                SlabAllocator::new(1 << 16), // 65536
+                SlabAllocator::new(1 << 17), // 131072
+            ]
         }
     }
 }
 
 impl<'a> SlabPool<'a> {
 
-    const MAX_SLABALLOCATOR: usize = 10;
+    const MAX_BASE_SLABALLOCATOR: usize = 9;
+    const MAX_LARGE_SLABALLOCATOR: usize = 6;
 
     pub const fn new() -> SlabPool<'a> {
-         SlabPool {
-            slabs: [
+        SlabPool {
+            base_slabs: [
                 SlabAllocator::new(1 << 3), // 8
                 SlabAllocator::new(1 << 4), // 16
                 SlabAllocator::new(1 << 5), // 32
@@ -51,23 +69,38 @@ impl<'a> SlabPool<'a> {
                 SlabAllocator::new(1 << 9),  // 512
                 SlabAllocator::new(1 << 10), // 1024
                 SlabAllocator::new(1 << 11), // 2048
+            ],
+            large_slabs: [
                 SlabAllocator::new(1 << 12), // 4096
+                SlabAllocator::new(1 << 13), // 8192
+                SlabAllocator::new(1 << 14), // 16384
+                SlabAllocator::new(1 << 15), // 32768
+                SlabAllocator::new(1 << 16), // 65536
+                SlabAllocator::new(1 << 16), // 131072
             ],
         }
     }
-    fn get_slab(requested_size: usize) -> Slab {
+    fn get_slab(requested_size: usize) -> Slab{
         match requested_size {
-            0..=8 => Slab::Base(0),
-            9..=16 => Slab::Base(1),
-            17..=32 => Slab::Base(2),
-            33..=64 => Slab::Base(3),
-            65..=128 => Slab::Base(4),
-            129..=256 => Slab::Base(5),
-            257..=512 => Slab::Base(6),
-            513..=1024 => Slab::Base(7),
-            1025..=2048 => Slab::Base(8),
-            2049..=4096 => Slab::Base(9),
-            _ => Slab::Unsupported,
+            0..= MAX_BASE_OBJECTS_SIZE => {
+                if requested_size <= 4 {
+                    Slab::Base(0)
+                } else {
+                    let size = CalculateOf2::next_power_of_2(requested_size);
+                    let power_of_2: usize = CalculateOf2::log2_2(size) as usize;
+                    let index: usize = wrapping_sub(power_of_2, MIN_BASE_OBJECTS_POWER);
+                    let result = Slab::Base(index);
+                    result
+                }
+            }
+            MIN_LARGE_ALLOC_SIZE ..= MAX_LARGE_OBJECTS_SIZE => {
+                let size = CalculateOf2::next_power_of_2(requested_size);
+                let power_of_2: usize = CalculateOf2::log2_2(size) as usize;
+                let index: usize = wrapping_sub(power_of_2, BASE_PAGE_POWER);
+                let result = Slab::Large(index);
+                result
+            }
+            _ => Slab::Unsupported
         }
     }
     // Reclaims empty pages by calling `dealloc` on it and removing it from the
@@ -77,8 +110,22 @@ impl<'a> SlabPool<'a> {
     where
         F: Fn(*mut PageObject),
     {
-        for i in 0..SlabPool::MAX_SLABALLOCATOR {
-            let slab = &mut self.slabs[i];
+        for i in 0..SlabPool::MAX_BASE_SLABALLOCATOR {
+            let slab = &mut self.base_slabs[i];
+            let just_reclaimed = slab.try_reclaim_pages(reclaim, &mut dealloc);
+            reclaim = reclaim.checked_sub(just_reclaimed).unwrap_or(0);
+            if reclaim == 0 {
+                break;
+            }
+        }
+    }
+    #[allow(unused)]
+    fn try_reclaim_large_pages<F>(&mut self, mut reclaim: usize, mut dealloc: F)
+    where
+        F: Fn(*mut LargePageObject),
+    {
+        for i in 0..SlabPool::MAX_LARGE_SLABALLOCATOR {
+            let slab = &mut self.large_slabs[i];
             let just_reclaimed = slab.try_reclaim_pages(reclaim, &mut dealloc);
             reclaim = reclaim.checked_sub(just_reclaimed).unwrap_or(0);
             if reclaim == 0 {
@@ -91,33 +138,53 @@ impl<'a> SlabPool<'a> {
 pub unsafe trait Allocator<'a> {
     fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocationError>;
     fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), AllocationError>;
-    unsafe fn refill(
+    unsafe fn refill_base(
         &mut self,
         layout: Layout,
         new_page: &'a mut PageObject<'a>,
+    ) -> Result<(), AllocationError>;
+    unsafe fn refill_large(
+        &mut self,
+        layout: Layout,
+        new_page: &'a mut LargePageObject<'a>,
     ) -> Result<(), AllocationError>;
 }
 
 unsafe impl<'a> Allocator<'a> for SlabPool<'a> {
     fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocationError> {
         match SlabPool::get_slab(layout.size()) {
-            Slab::Base(index) => self.slabs[index].allocate(layout),
+            Slab::Base(index) => self.base_slabs[index].allocate(layout),
+            Slab::Large(index) => self.large_slabs[index].allocate(layout),
             Slab::Unsupported => Err(AllocationError::InvalidLayout),
         }
     }
 
     fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), AllocationError> {
         match SlabPool::get_slab(layout.size()) {
-            Slab::Base(index) => self.slabs[index].deallocate(ptr, layout),
+            Slab::Base(index) => self.base_slabs[index].deallocate(ptr, layout),
+            Slab::Large(index) => self.large_slabs[index].deallocate(ptr, layout),
             Slab::Unsupported => Err(AllocationError::InvalidLayout),
         }
     }
 
-    // Refills the SlabAllocator
-    unsafe fn refill(&mut self, layout: Layout, new_page: &'a mut PageObject<'a>) -> Result<(), AllocationError> {
+    // Refills the SlabAllocator(include Pageobject)
+    unsafe fn refill_base(&mut self, layout: Layout, new_page: &'a mut PageObject<'a>) -> Result<(), AllocationError> {
         match SlabPool::get_slab(layout.size()) {
             Slab::Base(index) => {
-                self.slabs[index].refill(new_page);
+                self.base_slabs[index].refill(new_page);
+                Ok(())
+            }
+            Slab::Large(_index) => Err(AllocationError::InvalidLayout),
+            Slab::Unsupported => Err(AllocationError::InvalidLayout),
+        }
+    }
+
+    // Refills the SlabAllocator(include Largepageobject)
+    unsafe fn refill_large(&mut self, layout: Layout, new_page: &'a mut LargePageObject<'a>) -> Result<(), AllocationError> {
+        match SlabPool::get_slab(layout.size()) {
+            Slab::Base(_index) => Err(AllocationError::InvalidLayout),
+            Slab::Large(index) => {
+                self.large_slabs[index].refill(new_page);
                 Ok(())
             }
             Slab::Unsupported => Err(AllocationError::InvalidLayout),
@@ -156,7 +223,7 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
         SlabAllocator {
             size: size,
             allocation_count: 0,
-            per_page_max_obj:cmin((P::SIZE -80)/size, 256 ),
+            per_page_max_obj:cmin((P::SIZE - META_DATA_SIZE)/size, BASE_PAGE_SIZE / MIN_BASE_OBJECTS_SIZE),
             free_slabs: PageList::new(),
             partial_slabs: PageList::new(),
             full_slabs: PageList::new(),
@@ -182,6 +249,7 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
         let result = NonNull::new(ptr).ok_or(AllocationError::OutOfMemory);
         result
     }
+
     // Deallocates a previously allocated `ptr` described by `Layout`
     // May return an error in case an invalid `layout` is provided
     pub fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) -> Result<(), AllocationError> {
@@ -226,7 +294,6 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
                 self.move_full_to_partial(slab_page);
             }
         }
-
         for slab_page in self.partial_slabs.iter_mut() {
             if slab_page.is_free(self.per_page_max_obj) {
                 self.move_partial_to_free(slab_page);
@@ -276,7 +343,7 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
     // Refill the SlabAllocator
     // PageObject needs to be empty
     unsafe fn refill(&mut self, page: &'a mut P) {
-        page.bitfield_mut().initialize(self.size, P::SIZE - BASIC_SIZE);
+        page.bitfield_mut().initialize(self.size, P::SIZE - META_DATA_SIZE);
         *page.prev() = Link::none();
         *page.next() = Link::none();
         self.add_free_slabs(page);
@@ -352,7 +419,6 @@ impl<'a, T: AllocablePage> PageList<'a, T> {
                 let _ = self.head.as_mut().map(|n| {
                     *n.prev() = Link::none();
                 });
-
                 self.elements -= 1;
                 new_head.map(|node| {
                     *node.prev() = Link::none();
@@ -401,7 +467,7 @@ impl<'a, P: AllocablePage > Iterator for PageObjectIter<'a, P> {
 #[repr(C)]
 pub struct PageObject<'a> {
     // Holds memory objects.
-    data: [u8; FOUR_K_SIZE - BASIC_SIZE],
+    data: [u8; BASE_PAGE_SIZE - META_DATA_SIZE],
     // Next element in list (used by `PageList`).
     next: Link<PageObject<'a>>,
     prev: Link<PageObject<'a>>,
@@ -414,7 +480,7 @@ unsafe impl<'a> Sync for PageObject<'a> {}
 
 impl<'a> AllocablePage for PageObject<'a> {
 
-    const SIZE: usize = FOUR_K_SIZE;
+    const SIZE: usize = BASE_PAGE_SIZE;
 
     fn bitfield(&self) -> &[AtomicU64; 8] {
         &self.bitfield
@@ -441,6 +507,52 @@ impl<'a> Default for PageObject<'a> {
 impl<'a> fmt::Debug for PageObject<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PageObject")
+    }
+}
+
+#[repr(C)]
+pub struct LargePageObject<'a> {
+    // Holds memory objects.
+    data: [u8; LARGE_PAGE_SIZE - META_DATA_SIZE],
+    // Next element in list (used by `PageList`).
+    next: Link<LargePageObject<'a>>,
+    prev: Link<LargePageObject<'a>>,
+    // A bit-field to track free/allocated memory within data.
+    bitfield: [AtomicU64; 8],
+}
+
+unsafe impl<'a> Send for LargePageObject<'a> {}
+unsafe impl<'a> Sync for LargePageObject<'a> {}
+
+impl<'a> AllocablePage for LargePageObject<'a> {
+
+    const SIZE: usize = LARGE_PAGE_SIZE;
+
+    fn bitfield(&self) -> &[AtomicU64; 8] {
+        &self.bitfield
+    }
+    fn bitfield_mut(&mut self) -> &mut [AtomicU64; 8] {
+        &mut self.bitfield
+    }
+
+    fn prev(&mut self) -> &mut Link<Self> {
+        &mut self.prev
+    }
+
+    fn next(&mut self) -> &mut Link<Self> {
+        &mut self.next
+    }
+}
+
+impl<'a> Default for LargePageObject<'a> {
+    fn default() -> LargePageObject<'a> {
+        unsafe { MaybeUninit::zeroed().assume_init() }
+    }
+}
+
+impl<'a> fmt::Debug for LargePageObject<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LargePageObject")
     }
 }
 
@@ -496,6 +608,7 @@ pub trait AllocablePage {
 
 enum Slab {
     Base(usize),
+    Large(usize),
     Unsupported,
 }
 
@@ -567,7 +680,7 @@ impl Bitfield for [AtomicU64] {
                 let first_free = negated.trailing_zeros() as usize;
                 let index: usize = base_index * 64 + first_free;
                 let offset = index * layout.size();
-                let offset_inside_data = offset <= (page_size - BASIC_SIZE - layout.size());
+                let offset_inside_data = offset <= (page_size - META_DATA_SIZE - layout.size());
                 if !offset_inside_data {
                     return None;
                 }
@@ -656,7 +769,7 @@ pub mod slab_tests {
         let tests = [
         // Add your test function here. In the form of:
         // SlabTestElem(your_test_name, String::from("your_test_name")),
-            SlabTestElem(alloc_basic_size, String::from("alloc_basic_size")),
+            //SlabTestElem(alloc_basic_size, String::from("alloc_basic_size")),
             SlabTestElem(alloc_critical_size, String::from("alloc_critical_size")),
             SlabTestElem(alloc_max_size_chunk, String::from("alloc_max_size_chunk")),
             SlabTestElem(alloc_random_size, String::from("alloc_random_size")),
@@ -732,19 +845,19 @@ pub mod slab_tests {
         let layouts = [
             Layout::from_size_align(127usize, 1usize).unwrap(),
             Layout::from_size_align(128usize, 1usize).unwrap(),
-            Layout::from_size_align(128usize, 128usize).unwrap(),
+            //Layout::from_size_align(128usize, 128usize).unwrap(),
             Layout::from_size_align(129usize, 1usize).unwrap(),
             Layout::from_size_align(255usize, 1usize).unwrap(),
             Layout::from_size_align(256usize, 1usize).unwrap(),
-            Layout::from_size_align(256usize, 256usize).unwrap(),
+            //Layout::from_size_align(256usize, 256usize).unwrap(),
             Layout::from_size_align(127usize, 1usize).unwrap(),
             Layout::from_size_align(511usize, 1usize).unwrap(),
             Layout::from_size_align(512usize, 1usize).unwrap(),
-            Layout::from_size_align(512usize, 512usize).unwrap(),
+            //Layout::from_size_align(512usize, 512usize).unwrap(),
             Layout::from_size_align(513usize, 1usize).unwrap(),
             Layout::from_size_align(1023usize, 1usize).unwrap(),
             Layout::from_size_align(1024usize, 1usize).unwrap(),
-            Layout::from_size_align(1024usize, 1024usize).unwrap(),
+           // Layout::from_size_align(1024usize, 1024usize).unwrap(),
             Layout::from_size_align(1025usize, 1usize).unwrap(),
             Layout::from_size_align(2047usize, 1usize).unwrap(),
             Layout::from_size_align(2048usize, 1usize).unwrap(),
@@ -760,6 +873,7 @@ pub mod slab_tests {
             Layout::from_size_align(16385usize, 1usize).unwrap(),
         ];
         let mut is_passed = true;
+
 
         for layout in layouts.iter() {
             match single_test(layout.clone()) {
@@ -818,7 +932,7 @@ pub mod slab_tests {
         // been allocated, 16000 pages are allocated here. Each TestChunk contains
         // 16 pages.
         struct TestChunk {
-            data: [u32; 16384],
+            data: [u8; 16384],
         }
         const MAX_CHUNKS: u32 = 1000;
 
