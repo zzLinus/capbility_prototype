@@ -5,7 +5,7 @@
 #![feature(core_intrinsics)]
 #[warn(dead_code)]
 use core::arch::asm;
-use crate::pagetable::*;
+use crate::{pagetable::*, timer::{CLINT_MTIME, CLINT_CMP}};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 mod mutex;
@@ -125,6 +125,12 @@ fn vspace_init() -> PageTable {
     for vpn in start_temp.0..end_temp.0 {
         pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
+
+    start_temp = vpn_align_down(CLINT_MTIME as usize);
+    pagetable_kernel.page_map(start_temp.0, start_temp.0, PTEFlags::R | PTEFlags::W);
+    start_temp = vpn_align_down(CLINT_CMP as usize);
+    pagetable_kernel.page_map(start_temp.0, start_temp.0, PTEFlags::R | PTEFlags::W);
+
     pagetable_kernel
 }
 
@@ -147,9 +153,8 @@ extern "C" fn rust_main() {
     my_uart.init();
     let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
-    // disable timer temporarily. To do: bug fix.
-    // cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    // timer::clint_init();
+    cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
+    timer::clint_init();
     pagetable_kernel.load();
     println!("safeOS is booting ...");
 
