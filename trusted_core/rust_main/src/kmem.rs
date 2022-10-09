@@ -183,18 +183,24 @@ pub fn test_palloc_pfree_sequence(kmem: &mut MutexGuard<Kmem>) -> bool {
 pub fn test_palloc_pfree_random(kmem: &mut MutexGuard<Kmem>) -> bool {
     let array = [1, 10, 100, 200, 500, 1000, 25600/3, 25600/2];
     println!("test_palloc_pfree_random");
+    let begin = kmem.find_begin(array[2]).unwrap();
     match kmem.palloc(array[2]){
         Some(x) => {
-            kmem.palloc(array[2]);
-            kmem.pfree(x, array[2]);
-            if kmem.find_begin(array[2]/2).unwrap() != 0 {
-                return false;
-            }
-            if kmem.find_begin(array[2]).unwrap() != 0 {
-                return false;
-            }
-            if kmem.find_begin(array[2]+1).unwrap() != 200 {
-                return false;
+            match kmem.palloc(array[2]){
+                Some(y) => {
+                    kmem.pfree(x, array[2]);
+                    if kmem.find_begin(array[2]/2).unwrap() != begin {
+                        return false;
+                    }
+                    if kmem.find_begin(array[2]).unwrap() != begin {
+                        return false;
+                    }
+                    if kmem.find_begin(array[2]+1).unwrap() != begin + 2*array[2] {
+                        return false;
+                    }
+                    kmem.pfree(y, array[2]);
+                },
+                None => { return false; }
             }
         },
         None => { return false;}
