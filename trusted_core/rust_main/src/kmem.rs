@@ -220,5 +220,5 @@ pub fn test_palloc_pfree_random(kmem: &mut MutexGuard<Kmem>) -> bool {
             None => { return false;}
         }
     }
-    true
+    true 
 }
