@@ -1,4 +1,5 @@
 use crate::mutex::Mutex;
+use rand::RngCore;
 
 pub static KMEM: Mutex<Kmem> = Mutex::new(Kmem::new());
 
@@ -181,23 +182,43 @@ pub fn test_palloc_pfree_sequence(kmem: &mut MutexGuard<Kmem>) -> bool {
 
 #[cfg(kernel_test)]
 pub fn test_palloc_pfree_random(kmem: &mut MutexGuard<Kmem>) -> bool {
-    let array = [1, 10, 100, 200, 500, 1000, 25600/3, 25600/2];
+    let mut rng = rand_pcg::Pcg32::new(0xcafef00dd15ea5e5, 0xa02bdbf7bb3c0a7);
     println!("test_palloc_pfree_random");
-    match kmem.palloc(array[2]){
-        Some(x) => {
-            kmem.palloc(array[2]);
-            kmem.pfree(x, array[2]);
-            if kmem.find_begin(array[2]/2).unwrap() != 0 {
-                return false;
-            }
-            if kmem.find_begin(array[2]).unwrap() != 0 {
-                return false;
-            }
-            if kmem.find_begin(array[2]+1).unwrap() != 200 {
-                return false;
-            }
-        },
-        None => { return false;}
+    let front = kmem.find_begin(1).unwrap();
+    for _i in 1..100 {
+        let random_size = rng.next_u32() as usize;
+        let alloc_size : usize = random_size % ((PAGE_NUM - front) / 3);
+        let begin = kmem.find_begin(alloc_size).unwrap();
+        match kmem.palloc(alloc_size){
+            Some(x) => {
+                match kmem.palloc(alloc_size){
+                    Some(y) => {
+                        kmem.pfree(x, alloc_size);
+                        if kmem.find_begin(alloc_size / 2).unwrap() != begin {
+                            return false;
+                        }
+                        if kmem.find_begin(alloc_size).unwrap() != begin {
+                            return false;
+                        }
+                        match kmem.find_begin(alloc_size + 1) {
+                            Some(z) => {
+                                if z != begin + 2 * alloc_size {
+                                    return false;
+                                }
+                            },
+                            None => {
+                                if (alloc_size + 1) * 3 <= PAGE_NUM - front {
+                                    return false;
+                                }
+                            }
+                        }
+                        kmem.pfree(y, alloc_size);
+                    },
+                    None => { return false; }
+                }
+            },
+            None => { return false;}
+        }
     }
     true
 }
