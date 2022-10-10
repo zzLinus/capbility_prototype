@@ -255,7 +255,7 @@ pub fn pagetable_page_unmap_test() -> bool {
     let mut vpn = 1;
     let mut ppn = 0x10000000;
     let mut pagetable = PageTable::new();
-    for i in 1..50000 {
+    for _i in 1..50000 {
         vpn += 1;
         ppn += 2;
         pagetable.page_map(vpn, ppn, PTEFlags::V);
@@ -264,8 +264,6 @@ pub fn pagetable_page_unmap_test() -> bool {
             println!("failed");
             return false;
         }
-        // println!("{} {:#x} -> {:#x}", i, vpn, ppn);
-        // print this in QEMU will not get all data, but if you donot print this, it runs well.
 
         pagetable.page_unmap(vpn);
         let p = pagetable.find_pte(vpn.into()).unwrap().get_ppn().0;
