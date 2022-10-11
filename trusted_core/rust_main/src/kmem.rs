@@ -1,5 +1,4 @@
 use crate::mutex::Mutex;
-use rand::RngCore;
 
 pub static KMEM: Mutex<Kmem> = Mutex::new(Kmem::new());
 
@@ -124,6 +123,9 @@ use crate::test_framework;
 
 #[cfg(kernel_test)]
 use crate::mutex::MutexGuard;
+
+#[cfg(kernel_test)]
+use rand::RngCore;
 
 #[cfg(kernel_test)]
 pub fn test_kmem() -> test_framework::TestResult{
