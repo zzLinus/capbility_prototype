@@ -73,7 +73,7 @@ impl BuddyAllocator {
     pub unsafe fn init_region(&mut self, region: PhysMemory) {
         self.region = region;
         let order = self
-            .allocation_order(Layout::from_size_align_unchecked(region.size, 1))
+            .allocation_order(Layout::from_size_align_unchecked(region.size, 4096))
             .expect("Failed to calculate order for root heap block");
         self.free_list_dealloc(order, region.base);
     }

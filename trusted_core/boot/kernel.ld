@@ -47,8 +47,7 @@ SECTIONS
     PROVIDE(bss_end = .);
   }
 
-  . = ALIGN(16);
-  . = . + 0x2000;
+  . = ALIGN(4096);
   heap_start = .;
   heap_end = . + 0x4000000;
   . = heap_end;
