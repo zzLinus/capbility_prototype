@@ -101,3 +101,129 @@ bitflags! {
         const U = 1 << 4;
     }
 }
+
+#[cfg(kernel_test)]
+use crate::test_framework::TestResult;
+
+#[cfg(kernel_test)]
+pub fn vma_test() -> TestResult {
+    let mut testresult = TestResult {
+        passed: 0,
+        failed: 0,
+    };
+    if vma_new_test() {
+        testresult.passed += 1;
+    }
+    else {
+        testresult.failed += 1;
+    }
+    if vma_map_test() {
+        testresult.passed += 1;
+    }
+    else {
+        testresult.failed += 1;
+    }
+    if vma_unmap_test() {
+        testresult.passed += 1;
+    }
+    else {
+        testresult.failed += 1;
+    }
+    if vma_copy_from_another_test() {
+        testresult.passed += 1;
+    }
+    else {
+        testresult.failed += 1;
+    }
+    testresult
+}
+
+#[cfg(kernel_test)]
+pub fn vma_new_test() -> bool {
+    println!("VMA::new");
+    let vma = VMA::new(VirtAddr(0x1002), VirtAddr(0x1f40), MapType::Identical, MapPerm::R);
+    if (vma.range.start != 0x1 as usize) | (vma.range.end != 0x2 as usize) {
+        return false;
+    }
+    if vma.map_type != MapType::Identical {
+        return false;
+    }
+    if vma.perm != MapPerm::R {
+        return false;
+    }
+    println!("pass");
+    true
+}
+#[cfg(kernel_test)]
+pub fn vma_map_test() -> bool {
+    println!("VMA::map");
+    let mut vma = VMA::new(VirtAddr(0x1002), VirtAddr(0x1f40), MapType::Identical, MapPerm::R);
+    let mut pagetable = PageTable::new();
+    vma.map(&mut pagetable);
+
+    let p = pagetable.translate(1).unwrap();
+    let ppn = p.get_ppn().0;
+    if ppn != 1 {
+        println!("failed");
+        return false;
+    }
+
+    let mut vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
+    let start = vma.range.start;
+    let end = vma.range.end;
+    let mut ppn: PhysPageNum = PhysPageNum(0);
+    for vpn in start..end {
+        let layout = Layout::from_size_align(4096usize, 1usize).unwrap();
+        let frame = unsafe { PHYS_MEM_ALLOCATOR.alloc(layout) as usize };
+        ppn = PhysPageNum(frame / PAGE_SIZE);
+        let pte_flags = PTEFlags::from_bits(vma.perm.bits).unwrap();
+        pagetable.page_map(vpn, ppn.0, pte_flags);
+    }
+
+    let p = pagetable.translate(2).unwrap();
+    let pp = p.get_ppn().0;
+    if pp != ppn.0 {
+        println!("failed");
+        return false;
+    }
+
+    println!("pass");
+    true
+}
+
+#[cfg(kernel_test)]
+pub fn vma_unmap_test() -> bool {
+    println!("VMA::unmap");
+    let mut vma_1 = VMA::new(VirtAddr(0x1002), VirtAddr(0x1f40), MapType::Identical, MapPerm::R);
+    let mut pagetable = PageTable::new();
+    vma_1.map(&mut pagetable);
+    let mut vma_2 = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
+    vma_2.map(&mut pagetable);
+
+    vma_1.unmap(&mut pagetable);
+    vma_2.unmap(&mut pagetable);
+
+    let p = pagetable.translate(1).unwrap().get_ppn().0;
+    let y = pagetable.translate(2).unwrap().get_ppn().0;
+    if (p != 0) | (y != 0) {
+        println!("failed");
+        return false;
+    }
+    println!("pass");
+    true
+}
+
+#[cfg(kernel_test)]
+pub fn vma_copy_from_another_test() -> bool {
+    println!("VMA::copy_from_antoher");
+    let vma_1 = VMA::new(VirtAddr(0x1002), VirtAddr(0x1f40), MapType::Identical, MapPerm::R);
+    let vma_2 = VMA::copy_from_another(&vma_1);
+    if (vma_1.range != vma_2.range) | (vma_1.map_type != vma_2.map_type)
+        | (vma_1.perm != vma_2.perm) {
+            println!("failed");
+            return false;
+        }
+    println!("pass");
+    true
+}
+
