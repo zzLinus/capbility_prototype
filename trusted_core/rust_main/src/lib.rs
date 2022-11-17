@@ -141,6 +141,8 @@ pub mod trap;
 pub mod uart;
 pub mod kmem;
 pub mod pagetable;
+pub mod vma;
+pub mod vspace;
 pub mod globalallocator_impl;
 
 #[cfg(kernel_test)]
