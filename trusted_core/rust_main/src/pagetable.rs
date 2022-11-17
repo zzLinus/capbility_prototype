@@ -20,14 +20,17 @@ impl PageTable {
             root_ppn: PhysPageNum(frame / PAGE_SIZE),
         }
     }
+
     pub fn page_map(&mut self, vpn: usize, ppn: usize, flags: PTEFlags) {
         let pte = self.find_pte_or_create(vpn.into()).unwrap();
         *pte = PTE::new(ppn.into(), flags | PTEFlags::V);
     }
+
     pub fn page_unmap(&mut self, vpn: usize) {
         let pte = self.find_pte(vpn.into()).unwrap();
         *pte = PTE { bits: 0 };
     }
+
     pub fn load(&self) {
         let satp = 8usize << 60 | self.root_ppn.0;
         unsafe {
@@ -35,6 +38,11 @@ impl PageTable {
             asm!("sfence.vma");
         }
     }
+
+    pub fn translate(&mut self, vpn: usize) -> Option<PTE> {
+        self.find_pte(VirtPageNum(vpn)).map(|pte| *pte)
+    }
+
     fn find_pte_or_create(&mut self, vpn: VirtPageNum) -> Option<&mut PTE> {
         let levels = vpn.levels();
         let mut ppn = self.root_ppn;
@@ -53,6 +61,7 @@ impl PageTable {
         }
         result
     }
+
     fn find_pte(&mut self, vpn: VirtPageNum) -> Option<&mut PTE> {
         let levels = vpn.levels();
         let mut ppn = self.root_ppn;
@@ -72,7 +81,8 @@ impl PageTable {
     }
 }
 
-struct PTE {
+#[derive(Copy, Clone)]
+pub struct PTE {
     bits: usize,
 }
 
@@ -90,20 +100,24 @@ bitflags! {
 }
 
 impl PTE {
+    pub fn get_ppn(&self) -> PhysPageNum {
+        (self.bits >> 10 & ((1usize << 44) - 1)).into()
+    }
+
     fn new(ppn: PhysPageNum, flags: PTEFlags) -> Self {
         PTE {
             bits: ppn.0 << 10 | flags.bits as usize,
         }
     }
-    fn get_ppn(&self) -> PhysPageNum {
-        (self.bits >> 10 & ((1usize << 44) - 1)).into()
-    }
+
     fn get_flags(&self) -> PTEFlags {
         PTEFlags::from_bits(self.bits as u8).unwrap()
     }
+
     fn is_valid(&self) -> bool {
         (self.get_flags() & PTEFlags::V) != PTEFlags::empty()
     }
+
 }
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -123,21 +137,31 @@ impl From<usize> for PhysAddr {
         Self(v & ((1 << 56) - 1))
     }
 }
+
 impl From<usize> for PhysPageNum {
     fn from(v: usize) -> Self {
         Self(v & ((1 << PPN_WIDTH_SV39) - 1))
     }
 }
+
 impl From<usize> for VirtAddr {
     fn from(v: usize) -> Self {
         Self(v & ((1 << 39) - 1))
     }
 }
+
 impl From<usize> for VirtPageNum {
     fn from(v: usize) -> Self {
         Self(v & ((1 << VPN_WIDTH_SV39) - 1))
     }
 }
+
+impl From<VirtPageNum> for VirtAddr {
+    fn from(v: VirtPageNum) -> Self {
+        Self(v.0 << PAGE_SIZE_BITS)
+    }
+}
+
 impl From<PhysPageNum> for PhysAddr {
     fn from(v: PhysPageNum) -> Self {
         Self(v.0 << PAGE_SIZE_BITS)
@@ -148,12 +172,18 @@ impl VirtAddr {
     pub fn align_down(&self) -> VirtPageNum {
         VirtPageNum(self.0 / PAGE_SIZE)
     }
+
     pub fn align_up(&self) -> VirtPageNum {
         VirtPageNum((self.0 - 1 + PAGE_SIZE) / PAGE_SIZE)
     }
 }
 
 impl PhysPageNum {
+    pub fn get_bytes_array(&self) -> &'static mut [u8] {
+        let pa: PhysAddr = (*self).into();
+        unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut u8, 4096) }
+    }
+
     fn get_pte_array(&self) -> &'static mut [PTE] {
         let pa: PhysAddr = (*self).into();
         unsafe { core::slice::from_raw_parts_mut(pa.0 as *mut PTE, 512) }

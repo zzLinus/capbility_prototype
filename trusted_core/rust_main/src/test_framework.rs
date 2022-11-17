@@ -6,6 +6,10 @@ use crate::kmem::test_kmem;
 
 use crate::pagetable::pagetable_test;
 
+use crate::vma::vma_test;
+
+use crate::vspace::vspace_test;
+
 use crate::physmemallocator_slab::slab_tests::slab_test_main;
 
 pub struct TestResult {
@@ -25,6 +29,10 @@ pub fn test_main() {
         TestlistElem(pagetable_test, String::from("pagetable_test")),
 
         TestlistElem(slab_test_main, String::from("slab_test_main")),
+
+        TestlistElem(vma_test, String::from("vma_test")),
+
+        TestlistElem(vspace_test, String::from("vspace_test")),
     ];
 
     println!("Start testing.");
