@@ -168,7 +168,7 @@ pub fn vma_map_test() -> bool {
         return false;
     }
 
-    let mut vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
+    let vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
     let start = vma.range.start;
     let end = vma.range.end;
     let mut ppn: PhysPageNum = PhysPageNum(0);

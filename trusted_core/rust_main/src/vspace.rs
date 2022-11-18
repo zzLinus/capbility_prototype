@@ -170,28 +170,28 @@ pub fn vspace_test() -> TestResult {
 pub fn vspace_find_vma_index_test() -> bool {
     println!("Vspace::find_vma_index");
     let mut vspace = Vspace::new();
-    let mut vma_1 = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
+    let vma_1 = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
     let mut index = vspace.find_insert_index(&vma_1);
     if index != 0 {
         println!("failed");
         return false;
     }
     vspace.space.push(vma_1);
-    let mut vma_2 = VMA::new(VirtAddr(0x1002), VirtAddr(0x1f40), MapType::Identical, MapPerm::R);
+    let vma_2 = VMA::new(VirtAddr(0x1002), VirtAddr(0x1f40), MapType::Identical, MapPerm::R);
     index = vspace.find_insert_index(&vma_2);
     if index != 0 {
         println!("failed");
         return false;
     }
     vspace.space.insert(index, vma_2);
-    let mut vma_3 = VMA::new(VirtAddr(0x4002), VirtAddr(0x4f40), MapType::Identical, MapPerm::R);
+    let vma_3 = VMA::new(VirtAddr(0x4002), VirtAddr(0x4f40), MapType::Identical, MapPerm::R);
     index = vspace.find_insert_index(&vma_3);
     if index != 2 {
         println!("failed");
         return false;
     }
     vspace.space.insert(index, vma_3);
-    let mut vma_4 = VMA::new(VirtAddr(0x3002), VirtAddr(0x3f40), MapType::Identical, MapPerm::R);
+    let vma_4 = VMA::new(VirtAddr(0x3002), VirtAddr(0x3f40), MapType::Identical, MapPerm::R);
     index = vspace.find_insert_index(&vma_4);
       if index != 2 {
         println!("failed");
@@ -205,7 +205,7 @@ pub fn vspace_find_vma_index_test() -> bool {
 pub fn vspace_map_test() -> bool {
     println!("Vspace::map");
     let mut vspace = Vspace::new();
-    let mut vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
+    let vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
     vspace.map(vma);
     let vma_x = vspace.space.pop().unwrap();
     let range = Range{start:2, end:3};
@@ -221,9 +221,9 @@ pub fn vspace_map_test() -> bool {
 pub fn vspace_unmap_test() -> bool {
     println!("Vspace::unmap");
     let mut vspace = Vspace::new();
-    let mut vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
+    let vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
     vspace.map(vma);
-    let mut vma_1 = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
+    let vma_1 = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
     vspace.unmap(vma_1);
     if vspace.space.len() != 0 {
         println!("failed");
@@ -237,7 +237,7 @@ pub fn vspace_unmap_test() -> bool {
 pub fn vspace_find_unmap_vma_test() -> bool {
     println!("Vspace::find_unmap_vma");
     let mut vspace = Vspace::new();
-    let mut vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
+    let vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Identical, MapPerm::R);
     vspace.map(vma);
     let mut vaddr = vspace.find_unmap_vma(1);
     if vaddr != 0x0 {
@@ -271,10 +271,9 @@ pub fn vspace_find_unmap_vma_test() -> bool {
 pub fn vspace_copy_from_another_test() -> bool {
     println!("Vspace::copy_from_another");
     let mut vspace = Vspace::new();
-    let mut vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
+    let vma = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
     vspace.map(vma);
-    let mut vma_1 = VMA::new(VirtAddr(0x2002), VirtAddr(0x2f40), MapType::Framed, MapPerm::R);
-    let mut vspace_1 = Vspace::copy_from_another(&mut vspace);
+    let vspace_1 = Vspace::copy_from_another(&mut vspace);
     if vspace_1.space != vspace.space {
         println!("failed");
         return false;
