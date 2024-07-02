@@ -3,37 +3,24 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
-#[warn(dead_code)]
-use core::arch::asm;
+// #[warn(dead_code)]
+#![allow(dead_code)]
+use core::arch::{asm, global_asm};
 use crate::{pagetable::*, timer::{CLINT_MTIME, CLINT_CMP}};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 mod mutex;
+mod scheduler;
+
+#[macro_use]
+mod console;
+
+
 extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
-// Macros for print
-#[macro_export]
-macro_rules! print
-{
-    ($($args:tt)+) => ({
-        use core::fmt::Write;
-        let _ = write!(crate::uart::Uart::new(0x1000_0000), $($args)+);
-    });
-}
-#[macro_export]
-macro_rules! println
-{
-    () => ({
-        print!("\r\n")
-    });
-    ($fmt:expr) => ({
-        print!(concat!($fmt, "\r\n"))
-    });
-    ($fmt:expr, $($args:tt)+) => ({
-        print!(concat!($fmt, "\r\n"), $($args)+)
-    });
-}
+
+global_asm!(include_str!("link_app.S"));
 
 #[no_mangle]
 extern "C" fn eh_personality() {}
@@ -153,12 +140,16 @@ pub mod test_framework;
 extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(UART_BASE);
     my_uart.init();
-    let pagetable_kernel = vspace_init();
+    // turn off paging for a while
+    // let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
     timer::clint_init();
-    pagetable_kernel.load();
+    // pagetable_kernel.load();
     println!("safeOS is booting ...");
+
+    scheduler::batch::dump_app_info();
+    
 
     #[cfg(kernel_test)]
     test_framework::test_main();
