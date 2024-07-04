@@ -11,5 +11,5 @@ _num_app:
     .global app_0_start
     .global app_0_end
 app_0_start:
-    .incbin "../user/target/riscv64gc-unknown-none-elf/release/print.bin"
+    .incbin "../user/target/riscv64gc-unknown-none-elf/release/world.bin"
 app_0_end:

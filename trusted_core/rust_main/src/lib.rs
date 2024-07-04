@@ -14,6 +14,7 @@ mod scheduler;
 
 #[macro_use]
 mod console;
+mod syscall;
 
 
 extern crate alloc;
@@ -144,11 +145,12 @@ extern "C" fn rust_main() {
     // let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    timer::clint_init();
+    // timer::clint_init();
     // pagetable_kernel.load();
     println!("safeOS is booting ...");
 
     scheduler::batch::dump_app_info();
+    scheduler::batch::load_next_and_run();
     
 
     #[cfg(kernel_test)]
