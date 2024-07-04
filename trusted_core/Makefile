@@ -29,6 +29,10 @@ TRUSTED_CORE_C_DEPS = $(TRUSTED_CORE_C_OBJS:.o=.d)
 # rust libray
 RUST_BUILD_TYPE = debug
 TRUSTED_CORE_RUST_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main
+CARGO_BUILD_OPTS = 
+ifeq ($(RUST_BUILD_TYPE), release)
+	CARGO_BUILD_OPTS = --release
+endif
 
 # compiler options, borrowed from xv6-riscv
 LINKER_SCRIPT = $(TRUSTED_CORE_SRC_DIR)/boot/kernel.ld
@@ -57,6 +61,9 @@ TRUSTED_CORE_RUST_LIB = $(TRUSTED_CORE_RUST_LIB_DIR)/librust_main.a
 # qemu
 QEMU = qemu-system-riscv64
 
+# gdb
+GDB = riscv64-unknown-linux-gnu-gdb
+
 # implicit rules to compile assembly files
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.S
 	@mkdir -p $(dir $@)
@@ -71,13 +78,17 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 
 .PHONY: rust_lib rust_lib_with_tests
 
+user_lib:
+	@cd $(ROOT_DIR)/user && make
+
 # build rust libs
-rust_lib:
-	cd $(TRUSTED_CORE_RUST_DIR) && cargo build
+rust_lib: user_lib
+	@cd $(TRUSTED_CORE_RUST_DIR) && cargo build ${CARGO_BUILD_OPTS}
 
 # build rust libs with tests
 rust_lib_with_tests:
 	cd $(TRUSTED_CORE_RUST_DIR) && cargo rustc -- --cfg 'kernel_test'
+
 
 # build all
 all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) rust_lib
@@ -92,16 +103,25 @@ CPU_NUM = 1
 QEMUOPTS = -machine virt -bios none -kernel $(TARGET) -m 128M -smp $(CPU_NUM) -nographic
 QEMUOPTS += -drive file=$(BUILD_DIR)/hdd.dsk,if=none,format=raw,id=x0
 QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
+
 qemu: all
 	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
 	$(QEMU) $(QEMUOPTS)
 #	$(QEMU) -machine $(MACH) -cpu $(CPU) -smp $(CPU_NUM) -m $(MEM)  -nographic -serial mon:stdio -bios none -kernel $(TARGET) -drive if=none,format=raw,file=$(DRIVE),id=foo -device virtio-blk-device,scsi=off,drive=foo
 
 # run qemu with gdb
-QEMUGDB = -S -gdb tcp::26000
-qemu-gdb: all
+QEMUGDB = -gdb tcp:localhost:26000 -S
+# QEMUGDB = -s -S 
+gdb-server: all
 	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
 	$(QEMU) $(QEMUOPTS) $(QEMUGDB)
+
+gdb-client:
+	$(GDB) -ex "file $(TARGET)" \
+		   -ex "set arch riscv:rv64" \
+		   -ex "target remote localhost:26000"
+
+
 
 # qemu test
 qemu-test: test

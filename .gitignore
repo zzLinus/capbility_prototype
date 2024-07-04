@@ -2,3 +2,5 @@
 build
 **/target
 **/Cargo.lock
+
+**/link_app.S
