@@ -1,5 +1,5 @@
 TARGET := riscv64gc-unknown-none-elf
-MODE := release 
+MODE := release
 TARGET_DIR := target/${TARGET}/${MODE}
 
 APP_DIR := src/bin
@@ -20,4 +20,4 @@ elf:
 	@cargo build ${CARGO_OPT}
 
 bin: elf
-	@$(foreach elf, ${APP_ELF}, ${OBJCOPY} ${elf} --strip-all -O binary $(patsubst ${TARGET_DIR}/%, ${TARGET_DIR}/%.bin, ${elf}))
+	$(foreach elf, ${APP_ELF}, ${OBJCOPY} ${elf} --strip-all -O binary $(patsubst ${TARGET_DIR}/%, ${TARGET_DIR}/%.bin, ${elf});)
