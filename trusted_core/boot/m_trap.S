@@ -18,7 +18,7 @@ m_trap_vector:
 
 	li a0, MIP_MTIP
 	csrc mie, a0
-	li a0, MIP_SSIP
+	li a0, MIP_STIP
 	csrs mip, a0
 
 .Lmret:

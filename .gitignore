@@ -4,3 +4,6 @@ build
 **/Cargo.lock
 
 **/link_app.S
+
+.vscode
+.devcontainer.json

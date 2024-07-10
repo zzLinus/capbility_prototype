@@ -17,7 +17,7 @@ endif
 all: bin
 
 elf:
-	@cargo build ${CARGO_OPT}
+	@python3 build.py
 
 bin: elf
-	$(foreach elf, ${APP_ELF}, ${OBJCOPY} ${elf} --strip-all -O binary $(patsubst ${TARGET_DIR}/%, ${TARGET_DIR}/%.bin, ${elf});)
+	@$(foreach elf, ${APP_ELF}, ${OBJCOPY} ${elf} --strip-all -O binary $(patsubst ${TARGET_DIR}/%, ${TARGET_DIR}/%.bin, ${elf});)

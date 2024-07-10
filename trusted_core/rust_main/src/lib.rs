@@ -1,16 +1,21 @@
 #![no_std]
+#![allow(dead_code)]
+#![allow(internal_features)]
+
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
 // #[warn(dead_code)]
-#![allow(dead_code)]
 use core::arch::{asm, global_asm};
 use crate::{pagetable::*, timer::{CLINT_MTIME, CLINT_CMP}};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 mod mutex;
+
 mod scheduler;
+mod thread;
+mod config;
 
 #[macro_use]
 mod console;
@@ -145,12 +150,10 @@ extern "C" fn rust_main() {
     // let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    // timer::clint_init();
+    timer::clint_init();
     // pagetable_kernel.load();
-    println!("safeOS is booting ...");
-
-    scheduler::batch::dump_app_info();
-    scheduler::batch::load_next_and_run();
+    kprintln!("safeOS is booting ...");
+    scheduler::batch::init_task();
     
 
     #[cfg(kernel_test)]

@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(linkage)]
 #![feature(panic_info_message)]
 pub mod syscall;
 

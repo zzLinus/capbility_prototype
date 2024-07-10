@@ -53,7 +53,9 @@ void start_rust()
 
 	// delegate traps and interrupts to S mode
 	// w_medeleg(0xF0FF);
-	w_medeleg(0xFFFF);
+
+	// delegate U-ecall, keep S-ecall
+	w_medeleg(0xF1FF);
 	w_mideleg(0xFFFF);
 	w_mie(r_mie() | MIE_MEIE | MIE_MTIE | MIE_MSIE);
 	w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
