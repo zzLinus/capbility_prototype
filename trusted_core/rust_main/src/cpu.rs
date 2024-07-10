@@ -23,7 +23,6 @@ pub const SIE_SSIE: usize = 0b1 << 1;
 pub const SIP_SSIP: usize = 0b1 << 1;
 pub const SIP_STIP: usize = 0b1 << 5;
 
-
 //MIE
 pub const MIE_MEIE: usize = 0b1 << 11;
 pub const MIE_MTIE: usize = 0b1 << 7;

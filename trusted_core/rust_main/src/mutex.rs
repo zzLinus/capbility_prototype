@@ -1,21 +1,19 @@
-use core::sync::atomic::{AtomicBool, Ordering};
-use core::hint::spin_loop;
 use core::cell::UnsafeCell;
-use core::marker::Sync;
-use core::ops::{Drop, Deref, DerefMut};
-use core::fmt;
-use core::option::Option::{self, None, Some};
 use core::default::Default;
+use core::fmt;
+use core::hint::spin_loop;
+use core::marker::Sync;
+use core::ops::{Deref, DerefMut, Drop};
+use core::option::Option::{self, None, Some};
+use core::sync::atomic::{AtomicBool, Ordering};
 
-pub struct Mutex<T: ?Sized>
-{
-    lock: AtomicBool, // A boolean type which can be safely shared between threads.
+pub struct Mutex<T: ?Sized> {
+    lock: AtomicBool,    // A boolean type which can be safely shared between threads.
     data: UnsafeCell<T>, // UnsafeCell<T> opts-out of the immutability guarantee.
 }
 
 #[derive(Debug)]
-pub struct MutexGuard<'a, T: ?Sized + 'a>
-{
+pub struct MutexGuard<'a, T: ?Sized + 'a> {
     lock: &'a AtomicBool,
     data: &'a mut T,
 }
@@ -41,10 +39,8 @@ impl<T> Mutex<T> {
 impl<T: ?Sized> Mutex<T> {
     #[allow(deprecated)]
     fn obtain_lock(&self) {
-        while self.lock.compare_and_swap(false, true, Ordering::Acquire) != false
-        {
-            while self.lock.load(Ordering::Relaxed)
-            {
+        while self.lock.compare_and_swap(false, true, Ordering::Acquire) != false {
+            while self.lock.load(Ordering::Relaxed) {
                 spin_loop();
             }
         }
@@ -98,21 +94,21 @@ impl<T: ?Sized + Default> Default for Mutex<T> {
     }
 }
 
-impl<'a, T: ?Sized> Deref for MutexGuard<'a, T>
-{
+impl<'a, T: ?Sized> Deref for MutexGuard<'a, T> {
     type Target = T;
-    fn deref<'b>(&'b self) -> &'b T { &*self.data }
+    fn deref<'b>(&'b self) -> &'b T {
+        &*self.data
+    }
 }
 
-impl<'a, T: ?Sized> DerefMut for MutexGuard<'a, T>
-{
-    fn deref_mut<'b>(&'b mut self) -> &'b mut T { &mut *self.data }
+impl<'a, T: ?Sized> DerefMut for MutexGuard<'a, T> {
+    fn deref_mut<'b>(&'b mut self) -> &'b mut T {
+        &mut *self.data
+    }
 }
 
-impl<'a, T: ?Sized> Drop for MutexGuard<'a, T>
-{
-    fn drop(&mut self)
-    {
+impl<'a, T: ?Sized> Drop for MutexGuard<'a, T> {
+    fn drop(&mut self) {
         self.lock.store(false, Ordering::Release);
     }
 }

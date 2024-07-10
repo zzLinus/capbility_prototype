@@ -5,14 +5,14 @@ struct Stdout;
 
 const STDOUT_FD: usize = 1;
 
-impl Write for Stdout{
-    fn write_str(&mut self, s: &str) -> fmt::Result{
+impl Write for Stdout {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
         syscall::sys_write(STDOUT_FD, s.as_bytes());
         Ok(())
     }
 }
 
-pub fn print(args: fmt::Arguments){
+pub fn print(args: fmt::Arguments) {
     Stdout.write_fmt(args).unwrap()
 }
 
@@ -31,6 +31,3 @@ macro_rules! println {
         );
     }
 }
-
-
-

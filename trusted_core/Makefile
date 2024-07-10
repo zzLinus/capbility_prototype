@@ -81,8 +81,11 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 user_lib:
 	@cd $(ROOT_DIR)/user && make
 
+fmt:
+	@cd $(TRUSTED_CORE_RUST_DIR) && cargo fmt
+
 # build rust libs
-rust_lib: user_lib
+rust_lib: user_lib fmt
 	@cd $(TRUSTED_CORE_RUST_DIR) && cargo build ${CARGO_BUILD_OPTS}
 
 # build rust libs with tests
@@ -120,7 +123,6 @@ gdb-client:
 	$(GDB) -ex "file $(TARGET)" \
 		   -ex "set arch riscv:rv64" \
 		   -ex "target remote localhost:26000"
-
 
 
 # qemu test

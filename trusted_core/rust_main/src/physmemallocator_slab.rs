@@ -1,16 +1,16 @@
 #[warn(dead_code)]
 extern crate alloc;
-use core::cmp::min;
+use crate::physmemallocator_buddy::CalculateOf2;
 use alloc::alloc::Layout;
-use core::mem::{transmute, MaybeUninit, swap};
+use core::cmp::min;
 use core::fmt;
+use core::intrinsics::wrapping_sub;
+use core::mem::{swap, transmute, MaybeUninit};
+use core::ptr;
 use core::ptr::NonNull;
 use core::sync::atomic::{AtomicU64, Ordering};
-use core::ptr;
-use core::intrinsics::wrapping_sub;
-use crate::physmemallocator_buddy::CalculateOf2;
 
-const BALANCE_COUNT: usize = 64;   // Balance the number of objects in the three slab_lists
+const BALANCE_COUNT: usize = 64; // Balance the number of objects in the three slab_lists
 const META_DATA_SIZE: usize = 80;
 const MIN_BASE_OBJECTS_SIZE: usize = 8;
 const MIN_BASE_OBJECTS_POWER: usize = 3;
@@ -19,23 +19,23 @@ const MIN_LARGE_ALLOC_SIZE: usize = 2049;
 const MAX_LARGE_OBJECTS_SIZE: usize = 131072;
 const BASE_PAGE_SIZE: usize = 4096;
 const BASE_PAGE_POWER: usize = 12;
-const LARGE_PAGE_SIZE: usize = 2 * 1024 *1024;
+const LARGE_PAGE_SIZE: usize = 2 * 1024 * 1024;
 
 pub struct SlabPool<'a> {
     base_slabs: [SlabAllocator<'a, PageObject<'a>>; SlabPool::MAX_BASE_SLABALLOCATOR],
-    large_slabs: [SlabAllocator<'a, LargePageObject<'a>>; SlabPool::MAX_LARGE_SLABALLOCATOR]
+    large_slabs: [SlabAllocator<'a, LargePageObject<'a>>; SlabPool::MAX_LARGE_SLABALLOCATOR],
 }
 
 impl<'a> Default for SlabPool<'a> {
     fn default() -> SlabPool<'a> {
         SlabPool {
             base_slabs: [
-                SlabAllocator::new(1 << 3), // 8
-                SlabAllocator::new(1 << 4), // 16
-                SlabAllocator::new(1 << 5), // 32
-                SlabAllocator::new(1 << 6), // 64
-                SlabAllocator::new(1 << 7), // 128
-                SlabAllocator::new(1 << 8), // 256
+                SlabAllocator::new(1 << 3),  // 8
+                SlabAllocator::new(1 << 4),  // 16
+                SlabAllocator::new(1 << 5),  // 32
+                SlabAllocator::new(1 << 6),  // 64
+                SlabAllocator::new(1 << 7),  // 128
+                SlabAllocator::new(1 << 8),  // 256
                 SlabAllocator::new(1 << 9),  // 512
                 SlabAllocator::new(1 << 10), // 1024
                 SlabAllocator::new(1 << 11), // 2048
@@ -47,25 +47,24 @@ impl<'a> Default for SlabPool<'a> {
                 SlabAllocator::new(1 << 15), // 32768
                 SlabAllocator::new(1 << 16), // 65536
                 SlabAllocator::new(1 << 17), // 131072
-            ]
+            ],
         }
     }
 }
 
 impl<'a> SlabPool<'a> {
-
     const MAX_BASE_SLABALLOCATOR: usize = 9;
     const MAX_LARGE_SLABALLOCATOR: usize = 6;
 
     pub const fn new() -> SlabPool<'a> {
         SlabPool {
             base_slabs: [
-                SlabAllocator::new(1 << 3), // 8
-                SlabAllocator::new(1 << 4), // 16
-                SlabAllocator::new(1 << 5), // 32
-                SlabAllocator::new(1 << 6), // 64
-                SlabAllocator::new(1 << 7), // 128
-                SlabAllocator::new(1 << 8), // 256
+                SlabAllocator::new(1 << 3),  // 8
+                SlabAllocator::new(1 << 4),  // 16
+                SlabAllocator::new(1 << 5),  // 32
+                SlabAllocator::new(1 << 6),  // 64
+                SlabAllocator::new(1 << 7),  // 128
+                SlabAllocator::new(1 << 8),  // 256
                 SlabAllocator::new(1 << 9),  // 512
                 SlabAllocator::new(1 << 10), // 1024
                 SlabAllocator::new(1 << 11), // 2048
@@ -80,9 +79,9 @@ impl<'a> SlabPool<'a> {
             ],
         }
     }
-    fn get_slab(requested_size: usize) -> Slab{
+    fn get_slab(requested_size: usize) -> Slab {
         match requested_size {
-            0..= MAX_BASE_OBJECTS_SIZE => {
+            0..=MAX_BASE_OBJECTS_SIZE => {
                 if requested_size <= 4 {
                     Slab::Base(0)
                 } else {
@@ -93,14 +92,14 @@ impl<'a> SlabPool<'a> {
                     result
                 }
             }
-            MIN_LARGE_ALLOC_SIZE ..= MAX_LARGE_OBJECTS_SIZE => {
+            MIN_LARGE_ALLOC_SIZE..=MAX_LARGE_OBJECTS_SIZE => {
                 let size = CalculateOf2::next_power_of_2(requested_size);
                 let power_of_2: usize = CalculateOf2::log2_2(size) as usize;
                 let index: usize = wrapping_sub(power_of_2, BASE_PAGE_POWER);
                 let result = Slab::Large(index);
                 result
             }
-            _ => Slab::Unsupported
+            _ => Slab::Unsupported,
         }
     }
     // Reclaims empty pages by calling `dealloc` on it and removing it from the
@@ -168,7 +167,11 @@ unsafe impl<'a> Allocator<'a> for SlabPool<'a> {
     }
 
     // Refills the SlabAllocator(include Pageobject)
-    unsafe fn refill_base(&mut self, layout: Layout, new_page: &'a mut PageObject<'a>) -> Result<(), AllocationError> {
+    unsafe fn refill_base(
+        &mut self,
+        layout: Layout,
+        new_page: &'a mut PageObject<'a>,
+    ) -> Result<(), AllocationError> {
         match SlabPool::get_slab(layout.size()) {
             Slab::Base(index) => {
                 self.base_slabs[index].refill(new_page);
@@ -180,7 +183,11 @@ unsafe impl<'a> Allocator<'a> for SlabPool<'a> {
     }
 
     // Refills the SlabAllocator(include Largepageobject)
-    unsafe fn refill_large(&mut self, layout: Layout, new_page: &'a mut LargePageObject<'a>) -> Result<(), AllocationError> {
+    unsafe fn refill_large(
+        &mut self,
+        layout: Layout,
+        new_page: &'a mut LargePageObject<'a>,
+    ) -> Result<(), AllocationError> {
         match SlabPool::get_slab(layout.size()) {
             Slab::Base(_index) => Err(AllocationError::InvalidLayout),
             Slab::Large(index) => {
@@ -205,7 +212,7 @@ const fn cmin(a: usize, b: usize) -> usize {
     [a, b][(a > b) as usize]
 }
 
-pub struct SlabAllocator <'a, P: AllocablePage> {
+pub struct SlabAllocator<'a, P: AllocablePage> {
     size: usize,
     // track of succeeded allocations
     allocation_count: usize,
@@ -218,12 +225,15 @@ pub struct SlabAllocator <'a, P: AllocablePage> {
     pub full_slabs: PageList<'a, P>,
 }
 
-impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
+impl<'a, P: AllocablePage> SlabAllocator<'a, P> {
     pub const fn new(size: usize) -> SlabAllocator<'a, P> {
         SlabAllocator {
             size: size,
             allocation_count: 0,
-            per_page_max_obj:cmin((P::SIZE - META_DATA_SIZE)/size, BASE_PAGE_SIZE / MIN_BASE_OBJECTS_SIZE),
+            per_page_max_obj: cmin(
+                (P::SIZE - META_DATA_SIZE) / size,
+                BASE_PAGE_SIZE / MIN_BASE_OBJECTS_SIZE,
+            ),
             free_slabs: PageList::new(),
             partial_slabs: PageList::new(),
             full_slabs: PageList::new(),
@@ -231,9 +241,7 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
     }
 
     pub fn allocate(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocationError> {
-        let layout = unsafe {
-            Layout::from_size_align_unchecked(self.size, layout.align())
-        };
+        let layout = unsafe { Layout::from_size_align_unchecked(self.size, layout.align()) };
         let ptr = {
             let ptr = self.try_allocate_from_pagelist(layout);
             if ptr.is_null() && self.free_slabs.head.is_some() {
@@ -343,7 +351,8 @@ impl <'a, P: AllocablePage> SlabAllocator<'a, P> {
     // Refill the SlabAllocator
     // PageObject needs to be empty
     unsafe fn refill(&mut self, page: &'a mut P) {
-        page.bitfield_mut().initialize(self.size, P::SIZE - META_DATA_SIZE);
+        page.bitfield_mut()
+            .initialize(self.size, P::SIZE - META_DATA_SIZE);
         *page.prev() = Link::none();
         *page.next() = Link::none();
         self.add_free_slabs(page);
@@ -447,8 +456,7 @@ struct PageObjectIter<'a, P: AllocablePage> {
     phantom: core::marker::PhantomData<&'a P>,
 }
 
-impl<'a, P: AllocablePage > Iterator for PageObjectIter<'a, P> {
-
+impl<'a, P: AllocablePage> Iterator for PageObjectIter<'a, P> {
     type Item = &'a mut P;
 
     fn next(&mut self) -> Option<&'a mut P> {
@@ -456,7 +464,7 @@ impl<'a, P: AllocablePage > Iterator for PageObjectIter<'a, P> {
             self.head.resolve_mut().map(|next| {
                 self.head = match next.next().resolve_mut() {
                     None => Link::none(),
-                    Some(ref mut sp) =>Link::some(*sp),
+                    Some(ref mut sp) => Link::some(*sp),
                 };
                 next
             })
@@ -479,7 +487,6 @@ unsafe impl<'a> Send for PageObject<'a> {}
 unsafe impl<'a> Sync for PageObject<'a> {}
 
 impl<'a> AllocablePage for PageObject<'a> {
-
     const SIZE: usize = BASE_PAGE_SIZE;
 
     fn bitfield(&self) -> &[AtomicU64; 8] {
@@ -525,7 +532,6 @@ unsafe impl<'a> Send for LargePageObject<'a> {}
 unsafe impl<'a> Sync for LargePageObject<'a> {}
 
 impl<'a> AllocablePage for LargePageObject<'a> {
-
     const SIZE: usize = LARGE_PAGE_SIZE;
 
     fn bitfield(&self) -> &[AtomicU64; 8] {
@@ -619,25 +625,19 @@ pub struct Link<T> {
 
 impl<T> Default for Link<T> {
     fn default() -> Self {
-        Link {
-            p: ptr::null_mut()
-        }
+        Link { p: ptr::null_mut() }
     }
 }
 
 impl<T> Link<T> {
     // Like Option::None for Link
     fn none() -> Link<T> {
-        Link {
-            p: ptr::null_mut()
-        }
+        Link { p: ptr::null_mut() }
     }
 
     // Like Option::Some for Link
     fn some(n: &mut T) -> Link<T> {
-        Link {
-            p: n
-        }
+        Link { p: n }
     }
 
     unsafe fn resolve_mut<'a>(&mut self) -> Option<&'a mut T> {
@@ -648,7 +648,12 @@ impl<T> Link<T> {
 // bitfield
 trait Bitfield {
     fn initialize(&mut self, object_size: usize, max_size_buffer: usize);
-    fn first_fit(&self, base_addr: usize, layout: Layout, page_size: usize) -> Option<(usize, usize)>;
+    fn first_fit(
+        &self,
+        base_addr: usize,
+        layout: Layout,
+        page_size: usize,
+    ) -> Option<(usize, usize)>;
     fn is_allocated(&self, index: usize) -> bool;
     fn is_full(&self) -> bool;
     fn all_free(&self, bits: usize) -> bool;
@@ -670,7 +675,12 @@ impl Bitfield for [AtomicU64] {
     }
 
     // Find a free block of memory that satisfies requirement.
-    fn first_fit(&self, base_addr: usize, layout: Layout, page_size: usize) -> Option<(usize, usize)> {
+    fn first_fit(
+        &self,
+        base_addr: usize,
+        layout: Layout,
+        page_size: usize,
+    ) -> Option<(usize, usize)> {
         for (base_index, b) in self.iter().enumerate() {
             let bitval = b.load(Ordering::Relaxed);
             if bitval == u64::MAX {
@@ -741,9 +751,9 @@ impl Bitfield for [AtomicU64] {
 
 #[cfg(kernel_test)]
 pub mod slab_tests {
-    use crate::{println, print};
-    use crate::test_framework::TestResult;
     use crate::globalallocator_impl::PHYS_MEM_ALLOCATOR;
+    use crate::test_framework::TestResult;
+    use crate::{print, println};
     use alloc::string::String;
     use alloc::vec::Vec;
     use core::alloc::{GlobalAlloc, Layout};
@@ -754,9 +764,9 @@ pub mod slab_tests {
 
     enum SlabTestResult {
         Ok,
-        Err
+        Err,
     }
-    struct SlabTestElem (fn() -> SlabTestResult, String);
+    struct SlabTestElem(fn() -> SlabTestResult, String);
 
     // Print 80 spaces to clear what was printed in this line,
     // then return to the beginning of this line
@@ -767,8 +777,8 @@ pub mod slab_tests {
 
     pub fn slab_test_main() -> TestResult {
         let tests = [
-        // Add your test function here. In the form of:
-        // SlabTestElem(your_test_name, String::from("your_test_name")),
+            // Add your test function here. In the form of:
+            // SlabTestElem(your_test_name, String::from("your_test_name")),
             SlabTestElem(alloc_basic_size, String::from("alloc_basic_size")),
             SlabTestElem(alloc_critical_size, String::from("alloc_critical_size")),
             SlabTestElem(alloc_max_size_chunk, String::from("alloc_max_size_chunk")),
@@ -786,7 +796,7 @@ pub mod slab_tests {
                     clean_line();
                     println!("\x1b[32mpassed\x1b[0m");
                     passed_count += 1;
-                },
+                }
                 SlabTestResult::Err => {
                     clean_line();
                     println!("\x1b[31mfailed\x1b[0m");
@@ -795,7 +805,10 @@ pub mod slab_tests {
             }
         }
 
-        TestResult { passed: passed_count, failed: failed_count }
+        TestResult {
+            passed: passed_count,
+            failed: failed_count,
+        }
     }
 
     fn single_test(layout: Layout) -> SlabTestResult {
@@ -874,14 +887,13 @@ pub mod slab_tests {
         ];
         let mut is_passed = true;
 
-
         for layout in layouts.iter() {
             match single_test(layout.clone()) {
                 SlabTestResult::Err => {
                     is_passed = false;
                 }
                 SlabTestResult::Ok => {}
-            } 
+            }
         }
 
         if is_passed {
@@ -909,7 +921,10 @@ pub mod slab_tests {
         let mut shift = 4;
         while MAX_CHUNK_SIZE >= (1 << shift) {
             for _ in 0..=10 {
-                match single_test(Layout::from_size_align(((rng.next_u32() as usize) % (1 << shift)) + 1, 1).unwrap()) {
+                match single_test(
+                    Layout::from_size_align(((rng.next_u32() as usize) % (1 << shift)) + 1, 1)
+                        .unwrap(),
+                ) {
                     SlabTestResult::Err => {
                         is_passed = false;
                     }
