@@ -11,8 +11,8 @@ use core::arch::{asm, global_asm};
 use crate::{pagetable::*, timer::{CLINT_MTIME, CLINT_CMP}};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
-mod mutex;
-
+mod sync;
+mod endpoint;
 mod scheduler;
 mod thread;
 mod config;
@@ -20,7 +20,7 @@ mod config;
 #[macro_use]
 mod console;
 mod syscall;
-
+use endpoint::executor::{KERNEL_EXECUTOR,init_kernel_executor};
 
 extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
@@ -153,6 +153,8 @@ extern "C" fn rust_main() {
     timer::clint_init();
     // pagetable_kernel.load();
     kprintln!("safeOS is booting ...");
+    init_kernel_executor();
+    kprintln!("executor initialized");
     scheduler::batch::init_task();
     
 

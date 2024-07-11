@@ -1,6 +1,6 @@
 use crate::physmemallocator_buddy::{PhysMemory, BuddyAllocator};
 use crate::physmemallocator_slab::{Allocator, SlabPool, AllocationError};
-use crate::mutex::Mutex;
+use crate::sync::Mutex;
 use core::alloc::{GlobalAlloc, Layout};
 use core::mem::transmute;
 use core::ptr::NonNull;

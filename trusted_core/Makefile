@@ -2,7 +2,7 @@
 
 # Tool chain
 # TOOLCHAIN_PATH = /usr/bin
-TOOLCHAIN_PATH = /opt/riscv/bin
+TOOLCHAIN_PATH = /home/orangepi/cross_compile/riscv/bin
 # TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-elf-
 TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-linux-gnu-
 CC = $(TOOLCHAIN_PREFIX)gcc
@@ -62,7 +62,7 @@ TRUSTED_CORE_RUST_LIB = $(TRUSTED_CORE_RUST_LIB_DIR)/librust_main.a
 QEMU = qemu-system-riscv64
 
 # gdb
-GDB = riscv64-unknown-linux-gnu-gdb
+GDB = ~/cross_compile/gdb-14.2/build-riscv64/bin/riscv64-unknown-elf-gdb
 
 # implicit rules to compile assembly files
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.S
@@ -132,3 +132,14 @@ qemu-test: test
 clean:
 	rm -rf $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_ASM_DEPS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_C_DEPS) $(TRUSTED_CORE_LIB)
 	cd $(TRUSTED_CORE_RUST_DIR) && cargo clean
+
+# GDB wrapper to handle virtual path to core lib and types display in Rust
+gdb := RUST_GDB=$(GDB) rust-gdb
+
+gdb: all
+	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
+	@tmux new-session -d \
+			"$(QEMU) $(QEMUOPTS) $(QEMUGDB)" && \
+			tmux split-window -h "$(gdb) -ex 'file $(TARGET)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:26000'" && \
+			tmux swap-pane -U && \
+			tmux -2 attach-session -d

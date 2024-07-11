@@ -7,3 +7,4 @@ build
 
 .vscode
 .devcontainer.json
+trusted_core/.gdb_history

@@ -1,4 +1,4 @@
-use crate::mutex::Mutex;
+use crate::sync::Mutex;
 
 pub static KMEM: Mutex<Kmem> = Mutex::new(Kmem::new());
 

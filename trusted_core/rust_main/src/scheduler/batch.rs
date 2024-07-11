@@ -5,11 +5,11 @@ use alloc::vec::Vec;
 use alloc::sync::Arc;
 use lazy_static::lazy_static;
 
-use crate::mutex::Mutex;
+use crate::sync::Mutex;
 use crate::kprintln;
 use super::layout::ScheContext;
 use crate::thread::{TCB, ThreadState};
-
+use crate::endpoint::executor::KERNEL_EXECUTOR;
 
 pub struct BatchScheduler{
     current_id: usize,
@@ -123,7 +123,11 @@ pub fn dump_app_info() {
 }
 
 pub fn load_next_and_run() {
+    let executor = KERNEL_EXECUTOR.get().expect("KERNEL_EXECUTOR not initialized");
+    executor.nb_exec();
+    //KERNEL_EXECUTOR.nb_exec();
     let mut sche = SCHEDULER.lock();
+    sche.dump_app_info();
     extern "C" {
         fn __switch(src: usize, dst: usize);
     }
@@ -146,7 +150,6 @@ pub fn load_next_and_run() {
 }
 pub fn init_task() {
     // currently just takes the first and run
-
     // hack: set first src to be a dummy ctx, which will be released when exit the func
     let dummy_sche_ctx = ScheContext::init_with(0, 0);
 
@@ -182,5 +185,16 @@ pub fn mark_current_runnbale() {
     
 }
 
+pub fn wake_task(id:usize) {
+    let mut sche = SCHEDULER.lock();
+    sche.tasks[id].state = ThreadState::Runnable;
+}
+
+pub fn block_task()->usize {
+    let mut sche = SCHEDULER.lock();
+    let current_id = sche.current_id;
+    sche.tasks[current_id].state = ThreadState::Sleep;
+    current_id
+}
 
 
