@@ -11,16 +11,17 @@ use lazy_static::lazy_static;
 
 use alloc::sync::Arc;
 
-// lazy_static! {
-//     pub static ref KERNEL_EXECUTOR: CapsuleExecutor = CapsuleExecutor::new();
-// }
-pub static KERNEL_EXECUTOR: OnceCell<CapsuleExecutor> = OnceCell::uninit();
-
-pub fn init_kernel_executor() {
-    KERNEL_EXECUTOR
-        .try_init_once(|| CapsuleExecutor::new())
-        .expect("KERNEL_EXECUTOR already initialized");
+lazy_static! {
+    pub static ref KERNEL_EXECUTOR: CapsuleExecutor = CapsuleExecutor::new();
 }
+
+// pub static KERNEL_EXECUTOR: OnceCell<CapsuleExecutor> = OnceCell::uninit();
+//
+// pub fn init_kernel_executor() {
+//     KERNEL_EXECUTOR
+//         .try_init_once(|| CapsuleExecutor::new())
+//         .expect("KERNEL_EXECUTOR already initialized");
+// }
 
 type BoxedFut = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
@@ -58,10 +59,10 @@ pub trait IntoCapsule {
         Self: Sized,
         <Self as IntoCapsule>::Output: Send,
     {
-        let executor = KERNEL_EXECUTOR
-            .get()
-            .expect("KERNEL_EXECUTOR not initialized");
-        executor.atomic_push(self.resolve())
+        // let executor = KERNEL_EXECUTOR
+        //     .get()
+        //     .expect("KERNEL_EXECUTOR not initialized");
+        KERNEL_EXECUTOR.atomic_push(self.resolve())
         //KERNEL_EXECUTOR.atomic_push(self.resolve())
     }
 }

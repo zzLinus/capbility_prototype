@@ -28,7 +28,7 @@ extern void s_trap_vector();
  * currently safeOS only provies only one context space, so it does not
  * support multiple process/thread.
  */
-__attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * CPU_NUM];
+__attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * 4];
 __attribute__ ((aligned (16))) uint64 m_trap_context[PAGE_SIZE/sizeof(uint64)];
 __attribute__ ((aligned (16))) uint64 s_trap_context[PAGE_SIZE/sizeof(uint64)];
 

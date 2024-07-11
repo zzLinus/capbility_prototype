@@ -34,6 +34,10 @@ impl PhysMemAllocator {
 // Crate GlobalAllocator
 unsafe impl GlobalAlloc for PhysMemAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        // if layout.size() == 0 {
+        //     return NonNull::dangling().as_ptr();
+        // }
+        // assert!(layout.size() != 0);
         let mut buddyallocator = self.buddyallocator.lock();
         match layout.size() {
             BASE_PAGE_SIZE => {

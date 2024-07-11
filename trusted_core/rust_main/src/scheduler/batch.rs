@@ -115,10 +115,10 @@ pub fn dump_app_info() {
 }
 
 pub fn load_next_and_run() {
-    let executor = KERNEL_EXECUTOR
-        .get()
-        .expect("KERNEL_EXECUTOR not initialized");
-    executor.nb_exec();
+    // let executor = KERNEL_EXECUTOR
+    //     .get()
+    //     .expect("KERNEL_EXECUTOR not initialized");
+    KERNEL_EXECUTOR.nb_exec();
     //KERNEL_EXECUTOR.nb_exec();
     let mut sche = SCHEDULER.lock();
     sche.dump_app_info();
