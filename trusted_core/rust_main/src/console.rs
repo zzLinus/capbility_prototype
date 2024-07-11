@@ -30,4 +30,3 @@ macro_rules! kprintln
         $crate::print!(concat!("\x1b[0;32m[kernel] \x1b[0m", $fmt, "\r\n"), $($args)+)
     });
 }
-

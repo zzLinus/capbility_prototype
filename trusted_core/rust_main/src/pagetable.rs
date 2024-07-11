@@ -117,7 +117,6 @@ impl PTE {
     fn is_valid(&self) -> bool {
         (self.get_flags() & PTEFlags::V) != PTEFlags::empty()
     }
-
 }
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

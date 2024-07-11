@@ -29,7 +29,7 @@ pub struct Kmem {
 #[allow(dead_code)]
 impl Kmem {
     pub const fn new() -> Kmem {
-        Self{
+        Self {
             base_addr: PAGE_ADDR,
             bitmap: [0b1111_1111; PAGE_NUM / 8],
             front: 0,
@@ -37,7 +37,6 @@ impl Kmem {
             total: PAGE_NUM,
         }
     }
-
 
     fn num2coordinate(&mut self, num: usize) -> (usize, usize) {
         (num / 8, num % 8)
@@ -112,7 +111,7 @@ impl Kmem {
             println!("{:#010b}", self.bitmap[i]);
         }
     }
-    
+
     pub fn get_bitmap(&self, row: usize) -> u8 {
         return self.bitmap[row];
     }
@@ -128,19 +127,34 @@ use crate::mutex::MutexGuard;
 use rand::RngCore;
 
 #[cfg(kernel_test)]
-pub fn test_kmem() -> test_framework::TestResult{
-    let mut result = test_framework::TestResult{passed:0, failed:0};
+pub fn test_kmem() -> test_framework::TestResult {
+    let mut result = test_framework::TestResult {
+        passed: 0,
+        failed: 0,
+    };
     let mut kmem = KMEM.lock();
     println!("test kmem:");
-    if test_palloc_pfree_sequence(&mut kmem) { result.passed += 1; println!("passed!");} else { result.failed += 1; println!("failed!");}
-    if test_palloc_pfree_random(&mut kmem) { result.passed += 1; println!("passed!");} else { result.failed += 1; println!("failed!");}
-    
+    if test_palloc_pfree_sequence(&mut kmem) {
+        result.passed += 1;
+        println!("passed!");
+    } else {
+        result.failed += 1;
+        println!("failed!");
+    }
+    if test_palloc_pfree_random(&mut kmem) {
+        result.passed += 1;
+        println!("passed!");
+    } else {
+        result.failed += 1;
+        println!("failed!");
+    }
+
     result
 }
 
 #[cfg(kernel_test)]
 //Check whether the status of the size page starting from begin is flag
-pub fn check_bitmap(kmem: &mut MutexGuard<Kmem>, begin:usize, size: usize, flag: bool) -> bool {
+pub fn check_bitmap(kmem: &mut MutexGuard<Kmem>, begin: usize, size: usize, flag: bool) -> bool {
     let (mut row, mut col) = kmem.num2coordinate(begin);
     for _i in 0..size {
         if (kmem.get_bitmap(row) & PATTERN[col] == PATTERN[col]) == flag {
@@ -150,7 +164,7 @@ pub fn check_bitmap(kmem: &mut MutexGuard<Kmem>, begin:usize, size: usize, flag:
                 row += 1;
             }
             continue;
-        }else{
+        } else {
             return false;
         }
     }
@@ -164,14 +178,18 @@ pub fn test_palloc_pfree_sequence(kmem: &mut MutexGuard<Kmem>) -> bool {
         let size = i;
         let begin = kmem.find_begin(size);
         match begin {
-            Some(x) => {
-                match kmem.palloc(size) {
-                    Some(y) => {
-                        if !check_bitmap(kmem, x, size, false) { return false;}
-                        kmem.pfree(y, size);
-                        if !check_bitmap(kmem, x, size, true) { return false;}
-                    },
-                    None => {return false;}
+            Some(x) => match kmem.palloc(size) {
+                Some(y) => {
+                    if !check_bitmap(kmem, x, size, false) {
+                        return false;
+                    }
+                    kmem.pfree(y, size);
+                    if !check_bitmap(kmem, x, size, true) {
+                        return false;
+                    }
+                }
+                None => {
+                    return false;
                 }
             },
             None => {
@@ -189,37 +207,39 @@ pub fn test_palloc_pfree_random(kmem: &mut MutexGuard<Kmem>) -> bool {
     let front = kmem.find_begin(1).unwrap();
     for _i in 1..100 {
         let random_size = rng.next_u32() as usize;
-        let alloc_size : usize = random_size % ((PAGE_NUM - front) / 3);
+        let alloc_size: usize = random_size % ((PAGE_NUM - front) / 3);
         let begin = kmem.find_begin(alloc_size).unwrap();
-        match kmem.palloc(alloc_size){
-            Some(x) => {
-                match kmem.palloc(alloc_size){
-                    Some(y) => {
-                        kmem.pfree(x, alloc_size);
-                        if kmem.find_begin(alloc_size / 2).unwrap() != begin {
-                            return false;
-                        }
-                        if kmem.find_begin(alloc_size).unwrap() != begin {
-                            return false;
-                        }
-                        match kmem.find_begin(alloc_size + 1) {
-                            Some(z) => {
-                                if z != begin + 2 * alloc_size {
-                                    return false;
-                                }
-                            },
-                            None => {
-                                if (alloc_size + 1) * 3 <= PAGE_NUM - front {
-                                    return false;
-                                }
+        match kmem.palloc(alloc_size) {
+            Some(x) => match kmem.palloc(alloc_size) {
+                Some(y) => {
+                    kmem.pfree(x, alloc_size);
+                    if kmem.find_begin(alloc_size / 2).unwrap() != begin {
+                        return false;
+                    }
+                    if kmem.find_begin(alloc_size).unwrap() != begin {
+                        return false;
+                    }
+                    match kmem.find_begin(alloc_size + 1) {
+                        Some(z) => {
+                            if z != begin + 2 * alloc_size {
+                                return false;
                             }
                         }
-                        kmem.pfree(y, alloc_size);
-                    },
-                    None => { return false; }
+                        None => {
+                            if (alloc_size + 1) * 3 <= PAGE_NUM - front {
+                                return false;
+                            }
+                        }
+                    }
+                    kmem.pfree(y, alloc_size);
+                }
+                None => {
+                    return false;
                 }
             },
-            None => { return false;}
+            None => {
+                return false;
+            }
         }
     }
     true

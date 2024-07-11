@@ -6,15 +6,14 @@ pub mod syscall;
 #[macro_use]
 pub mod console;
 
-
 #[no_mangle]
 #[link_section = ".text.entry"]
-pub extern "C" fn _start() -> !{
+pub extern "C" fn _start() -> ! {
     extern "C" {
         fn main() -> i32;
     }
     // SAFETY: main is properly defined in other file
-    let exit_code = unsafe {main()};
+    let exit_code = unsafe { main() };
     syscall::sys_exit(exit_code);
     loop {}
 }
@@ -34,6 +33,3 @@ fn panic_handler(panic_info: &core::panic::PanicInfo) -> ! {
     }
     loop {}
 }
-
-
-

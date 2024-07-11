@@ -2,7 +2,7 @@
 
 # Tool chain
 # TOOLCHAIN_PATH = /usr/bin
-TOOLCHAIN_PATH = /home/orangepi/cross_compile/riscv/bin
+TOOLCHAIN_PATH = /opt/riscv/bin
 # TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-elf-
 TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-linux-gnu-
 CC = $(TOOLCHAIN_PREFIX)gcc
@@ -62,7 +62,7 @@ TRUSTED_CORE_RUST_LIB = $(TRUSTED_CORE_RUST_LIB_DIR)/librust_main.a
 QEMU = qemu-system-riscv64
 
 # gdb
-GDB = ~/cross_compile/gdb-14.2/build-riscv64/bin/riscv64-unknown-elf-gdb
+GDB = riscv64-unknown-linux-gnu-gdb
 
 # implicit rules to compile assembly files
 $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.S
@@ -81,8 +81,11 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 user_lib:
 	@cd $(ROOT_DIR)/user && make
 
+fmt:
+	@cd $(TRUSTED_CORE_RUST_DIR) && cargo fmt
+
 # build rust libs
-rust_lib: user_lib
+rust_lib: user_lib fmt
 	@cd $(TRUSTED_CORE_RUST_DIR) && cargo build ${CARGO_BUILD_OPTS}
 
 # build rust libs with tests
@@ -120,7 +123,6 @@ gdb-client:
 	$(GDB) -ex "file $(TARGET)" \
 		   -ex "set arch riscv:rv64" \
 		   -ex "target remote localhost:26000"
-
 
 
 # qemu test

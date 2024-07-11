@@ -1,6 +1,6 @@
-pub mod mutex;
-pub mod condvar;
 pub mod channel;
-pub use mutex::Mutex;
+pub mod condvar;
+pub mod mutex;
+pub use channel::{new, Receiver, Sender};
 pub use condvar::Condvar;
-pub use channel::{new,Sender,Receiver};
+pub use mutex::Mutex;

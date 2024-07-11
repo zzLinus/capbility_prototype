@@ -1,27 +1,31 @@
 #![no_std]
 #![allow(dead_code)]
 #![allow(internal_features)]
-
+#![allow(clippy::style)]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
+
 // #[warn(dead_code)]
+use crate::{
+    pagetable::*,
+    timer::{CLINT_CMP, CLINT_MTIME},
+};
 use core::arch::{asm, global_asm};
-use crate::{pagetable::*, timer::{CLINT_MTIME, CLINT_CMP}};
+mod endpoint;
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 mod sync;
-mod endpoint;
+
+mod config;
 mod scheduler;
 mod thread;
-mod config;
 
 #[macro_use]
 mod console;
 mod syscall;
-use endpoint::executor::{KERNEL_EXECUTOR,init_kernel_executor};
-
+use endpoint::executor::{init_kernel_executor, KERNEL_EXECUTOR};
 extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
@@ -70,15 +74,24 @@ extern "C" {
 }
 
 fn vspace_init() -> PageTable {
-    println!(".text [{:#x}, {:#x})", kernel_base as usize, text_end as usize);
-    println!(".rodata [{:#x}, {:#x})", rodata_start as usize, rodata_end as usize);
-    println!(".data [{:#x}, {:#x})", data_start as usize, data_end as usize);
+    println!(
+        ".text [{:#x}, {:#x})",
+        kernel_base as usize, text_end as usize
+    );
+    println!(
+        ".rodata [{:#x}, {:#x})",
+        rodata_start as usize, rodata_end as usize
+    );
+    println!(
+        ".data [{:#x}, {:#x})",
+        data_start as usize, data_end as usize
+    );
     println!(".bss [{:#x}, {:#x})", bss_start as usize, bss_end as usize);
     println!("heap  [{:#x}, {:#x})", heap_start as usize, end as usize);
 
     let mut pagetable_kernel = PageTable::new();
-    let mut start_temp:VirtPageNum = vpn_align_down(kernel_base as usize);
-    let mut end_temp:VirtPageNum = vpn_align_up(text_end as usize);
+    let mut start_temp: VirtPageNum = vpn_align_down(kernel_base as usize);
+    let mut end_temp: VirtPageNum = vpn_align_up(text_end as usize);
     for vpn in start_temp.0..end_temp.0 {
         pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::X);
     }
@@ -129,14 +142,14 @@ fn vspace_init() -> PageTable {
 
 pub mod cpu;
 pub mod ecall;
+pub mod globalallocator_impl;
+pub mod kmem;
+pub mod pagetable;
 pub mod timer;
 pub mod trap;
 pub mod uart;
-pub mod kmem;
-pub mod pagetable;
 pub mod vma;
 pub mod vspace;
-pub mod globalallocator_impl;
 
 #[cfg(kernel_test)]
 pub mod test_framework;
@@ -156,7 +169,6 @@ extern "C" fn rust_main() {
     init_kernel_executor();
     kprintln!("executor initialized");
     scheduler::batch::init_task();
-    
 
     #[cfg(kernel_test)]
     test_framework::test_main();
