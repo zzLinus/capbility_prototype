@@ -142,6 +142,6 @@ gdb: all
 	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
 	@tmux new-session -d \
 			"$(QEMU) $(QEMUOPTS) $(QEMUGDB)" && \
-			tmux split-window -h "$(gdb) -ex 'file $(TARGET)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:26000'" && \
+			tmux split-window -h "$(gdb) -ex 'file $(TARGET)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
 			tmux swap-pane -U && \
 			tmux -2 attach-session -d

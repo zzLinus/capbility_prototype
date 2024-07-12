@@ -121,7 +121,7 @@ pub fn load_next_and_run() {
     KERNEL_EXECUTOR.nb_exec();
     //KERNEL_EXECUTOR.nb_exec();
     let mut sche = SCHEDULER.lock();
-    sche.dump_app_info();
+    //sche.dump_app_info();
     extern "C" {
         fn __switch(src: usize, dst: usize);
     }

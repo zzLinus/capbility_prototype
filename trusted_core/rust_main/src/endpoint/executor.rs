@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 //use crossbeam_queue::SegQueue;
 use crate::println;
 use crate::sync::mutex::Mutex;
-use conquer_once::spin::OnceCell;
+//use conquer_once::spin::OnceCell;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -47,6 +47,10 @@ pub struct CapsuleHandle<R: Send> {
 impl<R: Send> CapsuleHandle<R> {
     fn new(rx: Receiver<R>) -> Self {
         Self { return_data: rx }
+    }
+
+    pub fn try_take_data(self) -> Option<R> {
+        self.return_data.nb_recv()
     }
 }
 
@@ -140,8 +144,8 @@ impl CapsuleExecutor {
                 .as_mut()
                 .poll(&mut Context::from_waker(&waker))
             {
-                Poll::Pending => println!("this one is pending"),
-                Poll::Ready(_) => println!("finish one"),
+                Poll::Pending => continue,  //println!("this one is pending"),
+                Poll::Ready(_) => continue, //println!("finish one"),
             };
         }
     }
