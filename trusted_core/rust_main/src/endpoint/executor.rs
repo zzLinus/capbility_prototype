@@ -1,9 +1,6 @@
-//use super::waker;
-use alloc::boxed::Box;
-//use crossbeam_queue::SegQueue;
 use crate::println;
 use crate::sync::mutex::Mutex;
-use conquer_once::spin::OnceCell;
+use alloc::boxed::Box;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -15,25 +12,7 @@ lazy_static! {
     pub static ref KERNEL_EXECUTOR: CapsuleExecutor = CapsuleExecutor::new();
 }
 
-// pub static KERNEL_EXECUTOR: OnceCell<CapsuleExecutor> = OnceCell::uninit();
-//
-// pub fn init_kernel_executor() {
-//     KERNEL_EXECUTOR
-//         .try_init_once(|| CapsuleExecutor::new())
-//         .expect("KERNEL_EXECUTOR already initialized");
-// }
-
 type BoxedFut = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
-
-/*
-    queue: holding type erased trait object ptr with Output = ()
-
-    for an incoming future: F
-    wrap it into MaybeDone<F>, which is generic over F
-                    | -> register a handler here
-                    | <- type erased it
-    CapsuleNode contains type erased future and notifier
-*/
 
 pub(crate) struct CapsuleNode {
     pub fut: Mutex<BoxedFut>,
@@ -48,6 +27,10 @@ impl<R: Send> CapsuleHandle<R> {
     fn new(rx: Receiver<R>) -> Self {
         Self { return_data: rx }
     }
+
+    pub fn try_take_data(&self) -> Option<R> {
+        self.return_data.nb_recv()
+    }
 }
 
 pub trait IntoCapsule {
@@ -59,11 +42,7 @@ pub trait IntoCapsule {
         Self: Sized,
         <Self as IntoCapsule>::Output: Send,
     {
-        // let executor = KERNEL_EXECUTOR
-        //     .get()
-        //     .expect("KERNEL_EXECUTOR not initialized");
         KERNEL_EXECUTOR.atomic_push(self.resolve())
-        //KERNEL_EXECUTOR.atomic_push(self.resolve())
     }
 }
 
@@ -84,8 +63,7 @@ pub struct CapsuleExecutor {
     ready_queue: Receiver<Arc<CapsuleNode>>,
 }
 
-// interior mutability required
-// this struct is used as static
+// interior mutability required this struct is used as static
 impl CapsuleExecutor {
     fn new() -> Self {
         let (tx, rx) = sync::new();
@@ -140,15 +118,14 @@ impl CapsuleExecutor {
                 .as_mut()
                 .poll(&mut Context::from_waker(&waker))
             {
-                Poll::Pending => println!("this one is pending"),
-                Poll::Ready(_) => println!("finish one"),
+                Poll::Pending => continue,  //println!("this one is pending"),
+                Poll::Ready(_) => continue, //println!("finish one"),
             };
         }
     }
 }
 
 pub fn block_on<R: Send>(handle: CapsuleHandle<R>) -> Result<R, ()> {
-    //add error propagation
     match handle.return_data.recv() {
         Some(a) => Ok(a),
         None => Err(()),

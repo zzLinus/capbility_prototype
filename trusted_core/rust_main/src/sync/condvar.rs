@@ -1,4 +1,4 @@
-use crate::scheduler::batch::{block_task, load_next_and_run, wake_task};
+use crate::scheduler::batch::{block_task, wake_task};
 use alloc::sync::Arc;
 //use crate::thread::TCB;
 use crossbeam_queue::SegQueue;

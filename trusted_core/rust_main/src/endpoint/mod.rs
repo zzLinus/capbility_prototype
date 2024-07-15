@@ -8,20 +8,31 @@ pub struct IPCBuffer {
     regs: [usize; 32],
     extra_caps: [usize; 32],
 }
-use executor::IntoCapsule;
+use executor::{CapsuleHandle, IntoCapsule};
+pub struct ReturnDataHook<R: Send>(Option<CapsuleHandle<R>>);
 
-/*
-    Endpoint logic
-each endpoint is statically registered with a call back function when initialized
-whenever a request coming in, the callback and its associated parameters, which is provided by
-the sender are wrapped into a Capsule.
+impl<R: Send> ReturnDataHook<R> {
+    fn new(hooked_data: CapsuleHandle<R>) -> Self {
+        Self(Some(hooked_data))
+    }
+    fn block(mut self) -> R {
+        executor::block_on(self.0.take().unwrap()).unwrap()
+    }
+}
 
-Capsules will be later scheduled by a kernel executor
-
-
-let mm_ep = Endpoint::new();
-let value = mm_ep.send();
-*/
+impl<R: Send> Drop for ReturnDataHook<R> {
+    fn drop(&mut self) {
+        match self.0.take() {
+            // if none, which means that return data has been blocked
+            None => {}
+            Some(handle) => {
+                if handle.try_take_data().is_none() {
+                    executor::block_on(handle).unwrap();
+                }
+            }
+        }
+    }
+}
 
 pub struct Endpoint<P, R> {
     callback: fn(P) -> R,
@@ -40,10 +51,16 @@ where
         }
     }
 
-    // non-blocking send todo:implement real nb_send which returns a fut
-    pub fn nb_send(mut self, buf_ptr: Box<IPCBuffer>) {
-        self.ipc_buf = Some(buf_ptr);
-        IntoCapsule::add_to_job_queue(self);
+    // nb send with hooked returned type, return type will be forced to complete prior it is dropped
+    pub fn nb_send(
+        &self,
+        buf_ptr: Box<IPCBuffer>,
+    ) -> ReturnDataHook<<Self as IntoCapsule>::Output> {
+        let capsule = Self {
+            callback: self.callback,
+            ipc_buf: Some(buf_ptr),
+        };
+        ReturnDataHook::new(IntoCapsule::add_to_job_queue(capsule))
     }
 
     /// blocking send
@@ -72,10 +89,20 @@ where
 
 fn callback1(_: Box<IPCBuffer>) -> usize {
     println!("callback with return gets called");
+    // let dummy_buf = Box::new(IPCBuffer::default());
+    // let ep = Endpoint::new(callback3);
+    // ep.nb_send(dummy_buf);
     10usize
 }
 
+// fn callback3(_: Box<IPCBuffer>) {
+//     println!("callback3 gets called")
+// }
+
 fn callback2(_: Box<IPCBuffer>) {
+    // let dummy_buf = Box::new(IPCBuffer::default());
+    // let ep = Endpoint::new(callback1);
+    // ep.send(dummy_buf);
     println!("trivial callback gets called")
 }
 
@@ -88,6 +115,6 @@ pub fn test_ep() {
         "return value from callback1: {}",
         ep1.send(dummy_buf.clone())
     );
-    ep2.nb_send(dummy_buf);
+    let _ = ep2.nb_send(dummy_buf);
     //KERNEL_EXECUTOR.nb_exec();
 }

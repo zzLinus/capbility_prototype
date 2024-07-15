@@ -47,8 +47,6 @@ impl BatchScheduler {
         let app_code_addr =
             unsafe { Vec::from_raw_parts(ptr.add(1) as *mut usize, num_app + 1, MAX_NUM_TASK) };
 
-        // potential bug in lazy_static: avoid entering into large memory alloc postone this
-        // TODO: fix this logic
         let tasks: Vec<TCB> = (0..num_app)
             .map(|id| {
                 let (s_addr, e_addr) = (app_code_addr[id], app_code_addr[id + 1]);
@@ -104,16 +102,12 @@ pub fn dump_app_info() {
 }
 
 pub fn load_next_and_run() {
-    // let executor = KERNEL_EXECUTOR
-    //     .get()
-    //     .expect("KERNEL_EXECUTOR not initialized");
     KERNEL_EXECUTOR.nb_exec();
-    //KERNEL_EXECUTOR.nb_exec();
     let mut sche = SCHEDULER.lock();
-    sche.dump_app_info();
     extern "C" {
         fn __switch(src: usize, dst: usize);
     }
+
     // state of current running thread should be changed prior entering `sche`
     match sche.find_next_runnable() {
         Some(switch_dst) => {

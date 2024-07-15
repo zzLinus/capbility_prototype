@@ -4,6 +4,7 @@ build
 **/Cargo.lock
 
 **/link_app.S
+**/.gdb_history
 
 .vscode
 .devcontainer.json

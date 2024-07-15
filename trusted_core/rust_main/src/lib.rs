@@ -145,18 +145,18 @@ pub mod cpu;
 pub mod ecall;
 pub mod globalallocator_impl;
 pub mod kmem;
+pub mod logger;
 pub mod pagetable;
+#[cfg(kernel_test)]
+pub mod test_framework;
 pub mod timer;
 pub mod trap;
 pub mod uart;
 pub mod vma;
 pub mod vspace;
-
-#[cfg(kernel_test)]
-pub mod test_framework;
-
 #[no_mangle]
 // rust language entry point, C start() jumps here
+
 extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(UART_BASE);
     my_uart.init();
@@ -166,7 +166,10 @@ extern "C" fn rust_main() {
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
     timer::clint_init();
     // pagetable_kernel.load();
-    kprintln!("safeOS is booting ...");
+    logger::init();
+    log::info!("safeOS is booting ...");
+    //kprintln!("safeOS is booting ...");
+
     scheduler::batch::init_task();
 
     #[cfg(kernel_test)]
