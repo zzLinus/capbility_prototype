@@ -336,3 +336,13 @@ pub fn w_(wval: usize) {
         asm!("csrw sip, {0}", in(reg) wval);
     }
 }
+
+#[inline]
+pub fn turn_off_s_intr() {
+    w_sscratch(r_sstatus() & (!SSTATUS_SIE));
+}
+
+#[inline]
+pub fn turn_on_s_intr() {
+    w_sscratch(r_sstatus() | SSTATUS_SIE);
+}

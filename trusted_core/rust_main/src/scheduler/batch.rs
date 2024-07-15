@@ -13,11 +13,10 @@ use crate::thread::{ThreadState, TCB};
 
 pub struct BatchScheduler {
     current_id: usize,
-    app_code_addr: Vec<usize>,
-    num_app: usize,
     tasks: Vec<TCB>,
 }
 use crate::config::*;
+use crate::trap::ret_from_user_trap;
 
 // introduce interior mutability + thread safety throught Arc<Mutex>
 lazy_static! {
@@ -50,26 +49,9 @@ impl BatchScheduler {
 
         // potential bug in lazy_static: avoid entering into large memory alloc postone this
         // TODO: fix this logic
-        // let tasks: Vec<TCB> = (0..num_app).map(|id| {
-        //     let (s_addr, e_addr) = (app_code_addr[id], app_code_addr[id+1]);
-        //     let text_addr = Self::load_app(id, s_addr, e_addr);
-        //     TCB::new(text_addr)
-        // }).collect();
-
-        // inst fence: make sure text load takes effect
-        unsafe { asm!("fence.i") };
-        Self {
-            num_app,
-            current_id: 0,
-            app_code_addr,
-            tasks: Vec::new(),
-        }
-    }
-
-    fn init_tcbs(&mut self) {
-        self.tasks = (0..self.num_app)
+        let tasks: Vec<TCB> = (0..num_app)
             .map(|id| {
-                let (s_addr, e_addr) = (self.app_code_addr[id], self.app_code_addr[id + 1]);
+                let (s_addr, e_addr) = (app_code_addr[id], app_code_addr[id + 1]);
                 let code_addr = Self::load_app(id, s_addr, e_addr);
                 let k_stack =
                     &KERNEL_STACKS.0[id * KERNEL_STACK_SIZE..(id + 1) * KERNEL_STACK_SIZE];
@@ -77,6 +59,13 @@ impl BatchScheduler {
                 TCB::new(k_stack, u_stack, code_addr)
             })
             .collect();
+
+        // inst fence: make sure text load takes effect
+        unsafe { asm!("fence.i") };
+        Self {
+            current_id: 0,
+            tasks,
+        }
     }
 
     fn load_app(id: usize, s_addr: usize, e_addr: usize) -> usize {
@@ -96,7 +85,7 @@ impl BatchScheduler {
         let num_tasks = self.tasks.len();
         for id in self.current_id + 1..self.current_id + num_tasks + 1 {
             match self.tasks[id % num_tasks].state {
-                ThreadState::Runnable => return Some(id % num_tasks),
+                ThreadState::Runnable | ThreadState::Uninit => return Some(id % num_tasks),
                 _ => {}
             }
         }
@@ -131,9 +120,14 @@ pub fn load_next_and_run() {
             let src = &sche.tasks[sche.current_id].sche_ctx as *const _ as usize;
             sche.current_id = switch_dst;
             let dst_tcb = &mut sche.tasks[switch_dst];
+            if let ThreadState::Uninit = dst_tcb.state {
+                // mock returning from user trap to prepare status registers for U mode
+                ret_from_user_trap();
+            }
             dst_tcb.state = ThreadState::Running;
             let dst = &dst_tcb.sche_ctx as *const _ as usize;
             drop(sche);
+
             // SAFETY: src and dst are properly inited
             unsafe {
                 __switch(src, dst);
@@ -150,12 +144,12 @@ pub fn init_task() {
     // force sche to drop
     let dst_sche_ctx = {
         let mut sche = SCHEDULER.lock();
-        sche.init_tcbs();
         let current_id = sche.current_id;
         let first_tcb = &mut sche.tasks[current_id];
         first_tcb.state = ThreadState::Running;
         &first_tcb.sche_ctx as *const _ as usize
     };
+    ret_from_user_trap();
     kprintln!("finish loading task");
     extern "C" {
         fn __switch(src: usize, dst: usize);

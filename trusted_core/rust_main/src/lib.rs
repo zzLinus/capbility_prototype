@@ -164,7 +164,7 @@ extern "C" fn rust_main() {
     // let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    // timer::clint_init();
+    timer::clint_init();
     // pagetable_kernel.load();
     kprintln!("safeOS is booting ...");
     scheduler::batch::init_task();

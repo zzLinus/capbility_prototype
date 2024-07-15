@@ -20,9 +20,10 @@ pub fn clint_init() {
     }
 }
 
-pub fn clint_clear_and_set() {
-    clint_set_cmp();
-    w_sip(r_sip() & !SIP_SSIP);
+#[inline]
+pub fn clear_pending_tintr() {
+    // timer intr in S mode is raised by set software intr in M mode
+    w_sip(r_sip() & (!SIP_SSIP))
 }
 
 #[inline]

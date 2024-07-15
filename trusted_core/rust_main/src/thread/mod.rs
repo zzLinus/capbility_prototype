@@ -7,6 +7,7 @@ pub enum ThreadState {
     Running,
     Exited,
     Sleep,
+    Uninit,
 }
 
 pub struct TCB {
@@ -46,7 +47,7 @@ impl TCB {
             k_stack,
             u_stack,
             sche_ctx,
-            state: ThreadState::Runnable,
+            state: ThreadState::Uninit,
         }
     }
 }
