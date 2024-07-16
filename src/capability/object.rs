@@ -23,20 +23,9 @@ pub struct UntypedObj {
     used: Region,
 }
 
-#[derive(Copy, Clone)]
-pub struct EndPointObj {
-    status: EPState,
-}
-
 pub enum Kobj {
     UntypedObj(UntypedObj),
-    EndPointObj(EndPointObj),
-}
-
-impl Kobj{
-    fn drop(&mut self) {
-
-    }
+    EndPointObj(EndPointObj<Box<IPCBuffer>,usize>),
 }
 
 impl UntypedObj {
@@ -66,12 +55,45 @@ impl UntypedObj {
     }
 }
 
-impl EndPointObj {
-    pub fn new(s: EPState) -> Self {
-        EndPointObj { status: s }
+pub struct EndPointObj<P, R> {
+    callback: fn(P) -> R,
+    ipc_buf: Option<Box<IPCBuffer>>,
+}
+
+impl<R> EndPointObj<Box<IPCBuffer>, R> {
+    pub fn new(callback: fn(Box<IPCBuffer>) -> R) -> Self {
+        Self {
+            callback,
+            ipc_buf: None,
+        }
+    }
+    pub fn dummy_send(&self) {
+        println!("edp send");
     }
 
-    pub fn get_queue(&self) {
-        println!("get qeueue")
+    // non-blocking send todo:implement real nb_send which returns a fut
+    // pub fn nb_send(mut self, buf_ptr: Box<IPCBuffer>) {
+    //     self.ipc_buf = Some(buf_ptr);
+    //     IntoCapsule::add_to_job_queue(self);
+    // }
+    pub fn nb_send(&self, buf_ptr: Box<IPCBuffer>) {
+        //let capsule = Self {
+        //    callback: self.callback,
+        //    ipc_buf: Some(buf_ptr),
+        //};
+        //// IntoCapsule::add_to_job_queue(capsule);
+        //ReturnDataHook::new(IntoCapsule::add_to_job_queue(capsule))
+    }
+
+    /// blocking send
+    /// in rCore,send will block this thread and schedule->nb_exec immdiately
+    pub fn send(mut self, buf_ptr: Box<IPCBuffer>) {
+        //self.ipc_buf = Some(buf_ptr);
+        //match executor::block_on(IntoCapsule::add_to_job_queue(self)) {
+        //    Ok(output) => output,
+        //    Err(_) => {
+        //        panic!("Failed send:");
+        //    }
+        //}
     }
 }
