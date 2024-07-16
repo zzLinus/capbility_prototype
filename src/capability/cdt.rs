@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, Weak};
 
 pub struct CdtNode {
     pub cap: Weak<Option<Mutex<Cap>>>,
-    pub child: Vec<Weak<CdtNode>>,
+    pub child: Vec<Weak<Mutex<CdtNode>>>,
 }
 
 impl CdtNode {

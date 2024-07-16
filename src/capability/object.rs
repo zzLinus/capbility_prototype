@@ -1,8 +1,4 @@
-#[derive(Debug, Default, Clone)]
-pub struct IPCBuffer {
-    regs: [usize; 32],
-    extra_caps: [usize; 32],
-}
+use super::structs::IPCBuffer;
 
 #[derive(PartialEq, Copy, Clone, Eq, Debug)]
 pub enum EPState {
@@ -40,10 +36,6 @@ impl UntypedObj {
                 end: 0x0,
             },
         }
-    }
-
-    pub fn retype(&self) {
-        println!("retype!");
     }
 
     pub fn get_region(&self) {
