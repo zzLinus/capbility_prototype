@@ -60,7 +60,7 @@ impl<R> EndPointObj<Box<IPCBuffer>, R> {
         }
     }
     pub fn dummy_send(&self) {
-        println!("edp send");
+        println!("edp dummy send");
     }
 
     // non-blocking send todo:implement real nb_send which returns a fut

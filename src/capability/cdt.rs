@@ -3,14 +3,14 @@ use super::rights::Rights;
 use std::sync::{Arc, Mutex, Weak};
 
 pub struct CdtNode {
-    pub cap: Weak<Option<Mutex<Cap>>>,
-    pub child: Vec<Weak<Mutex<CdtNode>>>,
+    pub cap: Arc<Option<Mutex<Cap>>>,
+    pub child: Vec<Arc<Mutex<CdtNode>>>,
 }
 
 impl CdtNode {
-    pub fn new() -> CdtNode {
+    pub fn new(c : Arc<Option<Mutex<Cap>>>) -> CdtNode {
         CdtNode {
-            cap: Weak::new(),
+            cap: c,
             child: Vec::new(),
         }
     }
