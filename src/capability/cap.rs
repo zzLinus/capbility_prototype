@@ -52,6 +52,7 @@ impl Cap {
                 CapInvLable::RETYPE => {
                     let typ = CapType::try_from(thread.ipc_buf.mrs[0]).unwrap();
                     println!("mr : {} ,retypeing to {:?}", thread.ipc_buf.mrs[0], typ);
+                    // TODO: allocate real memory for Kobj
                     self.new_cap(typ);
                 }
                 _ => unreachable!(),
@@ -112,6 +113,17 @@ impl Cap {
         }
     }
 
+    pub fn revoke(&self) {
+        for node in &Option::as_ref(&self.cdt_node.upgrade())
+            .unwrap()
+            .lock()
+            .unwrap()
+            .child
+            {
+                node.lock().unwrap().revoke();
+            }
+    }
+
     pub fn get_new_child(&self) -> Arc<Option<Mutex<Cap>>> {
         Option::as_ref(&self.cdt_node.upgrade())
             .unwrap()
@@ -126,8 +138,6 @@ impl Cap {
             .clone()
     }
 
-    // FIXME: should only create untype at the very beginning
-    // and retype then after if needed
     pub fn get_root_untpye() -> (Arc<Option<Mutex<Cap>>>, Arc<Mutex<CdtNode>>) {
         println!("this is root!");
         let u;
