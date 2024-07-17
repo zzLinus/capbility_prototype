@@ -1,33 +1,110 @@
 use super::structs::IPCBuffer;
+use crate::capability::alloc::*;
+use core::alloc::Layout;
+use core::ops::{Deref, DerefMut};
+use core::ptr::NonNull;
 
-#[derive(PartialEq, Copy, Clone, Eq, Debug)]
-pub enum EPState {
-    Idle = 0,
-    Send = 1,
-    Recv = 2,
-}
-
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Region {
     pub start: usize,
     pub end: usize,
 }
 
-#[derive(Copy, Clone)]
+pub enum KObj {
+    UntypedObj(KObj_inner<UntypedObj>),
+    PageTableObj(KObj_inner<PageTableObj>),
+    EndPointObj(KObj_inner<EndPointObj<Box<IPCBuffer>, usize>>),
+}
+
+pub struct KObj_inner<T, A: KObjAllocator = DefaultKAllocator>(NonNull<T>, A);
+
+impl<T, A: KObjAllocator> KObj_inner<T, A> {
+    fn into_raw(self) -> *mut T {
+        self.0.as_ptr()
+    }
+}
+
+impl<T, A> Deref for KObj_inner<T, A>
+where
+    A: KObjAllocator,
+{
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.0.as_ref() }
+    }
+}
+
+impl<T, A> DerefMut for KObj_inner<T, A>
+where
+    A: KObjAllocator,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.0.as_mut() }
+    }
+}
+
+impl<T, A> Drop for KObj_inner<T, A>
+where
+    A: KObjAllocator,
+{
+    fn drop(&mut self) {
+        unsafe {
+            self.1
+                .dealloc(NonNull::cast::<u8>(self.0), Layout::new::<T>())
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct PageTableObj {
+    start: usize,
+    end: usize,
+}
+
+impl PageTableObj {
+    pub fn clear(&self) {
+        println!("clear this page from {} to {}", self.start, self.end);
+    }
+}
+
+#[derive(Copy, Clone, Default)]
 pub struct UntypedObj {
     pub region: Region,
     used: Region,
     pub inited: bool,
 }
 
-pub enum Kobj {
-    UntypedObj(UntypedObj),
-    EndPointObj(EndPointObj<Box<IPCBuffer>, usize>),
-}
-
 impl UntypedObj {
-    pub fn new(start: usize, end: usize) -> Self {
-        UntypedObj {
+    pub fn retype<T>(&mut self) -> Result<KObj_inner<T>, KObjAllocErr>
+    where
+        T: Default + Sized,
+    {
+        let default_allocator = if self.inited {
+            DefaultKAllocator::bind(self)
+        } else {
+            self.inited = true;
+            DefaultKAllocator::init_from_scratch(self)
+        };
+        Self::retype_in::<T, DefaultKAllocator>(default_allocator)
+    }
+
+    // allocator passed into should be logically binded to the upper UntypedObj type
+    pub fn retype_in<T, A>(allocator: A) -> Result<KObj_inner<T, A>, KObjAllocErr>
+    where
+        T: Default + Sized,
+        A: KObjAllocator,
+    {
+        let mut free_aligned_slot = allocator.alloc(Layout::new::<T>())?.cast::<T>();
+        unsafe {
+            // SAFETY: free_aligned_slot is well aligned, taking ref into this is safe
+            *free_aligned_slot.as_mut() = T::default();
+            Ok(KObj_inner(free_aligned_slot, allocator))
+        }
+    }
+
+    pub fn new(start: usize, end: usize) -> KObj_inner<UntypedObj> {
+        // FIXME: root untype is now live in kernel heap
+        let root = Box::into_raw(Box::new(UntypedObj {
             region: Region {
                 start: start,
                 end: end,
@@ -37,21 +114,24 @@ impl UntypedObj {
                 end: 0x0,
             },
             inited: false,
-        }
-    }
+        }));
 
-    pub fn get_region(&self) {
-        println!("start {} end {}", self.region.start, self.region.end)
-    }
-
-    pub fn get_watermark(&self) {
-        println!("start {} end {}", self.used.start, self.used.end)
+        KObj_inner(NonNull::new(root).unwrap(), DefaultKAllocator::default())
     }
 }
 
 pub struct EndPointObj<P, R> {
     callback: fn(P) -> R,
     ipc_buf: Option<Box<IPCBuffer>>,
+}
+
+impl<P, R: std::default::Default> Default for EndPointObj<P, R> {
+    fn default() -> Self {
+        Self {
+            callback: |_| Default::default(),
+            ipc_buf: None,
+        }
+    }
 }
 
 impl<R> EndPointObj<Box<IPCBuffer>, R> {

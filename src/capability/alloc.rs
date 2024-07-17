@@ -4,10 +4,10 @@
 
 use core::alloc::Layout;
 use core::mem;
-use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
+use crate::capability::object::PageTableObj;
 
 use super::object::UntypedObj;
 
@@ -26,6 +26,7 @@ pub(crate) unsafe trait KObjAllocator {
     unsafe fn dealloc(&self, ptr: NonNull<u8>, layout: Layout);
 }
 
+#[derive(Default)]
 pub struct DefaultKAllocator {
     // struct to be allocated should be fitted into this block size(in byte)
     block_size: usize,
@@ -36,7 +37,7 @@ pub struct DefaultKAllocator {
 }
 
 impl DefaultKAllocator {
-    fn bind(untyped_obj: &UntypedObj) -> Self {
+    pub fn bind(untyped_obj: &UntypedObj) -> Self {
         let region = untyped_obj.region;
         let (start, end) = (region.start, region.end);
         // should at least be sizeof(usize), hardcode block_size to be 64 for now
@@ -54,7 +55,7 @@ impl DefaultKAllocator {
         }
     }
 
-    fn init_from_scratch(untyped_obj: &UntypedObj) -> Self {
+    pub fn init_from_scratch(untyped_obj: &UntypedObj) -> Self {
         let allocator = Self::bind(untyped_obj);
         let first_free_block =
             Self::build_linked_free_block(allocator.start, allocator.end, allocator.block_size);
@@ -66,7 +67,7 @@ impl DefaultKAllocator {
     }
 
     // store link block meta info directly in mem instead of binding to allocator struct
-    fn build_linked_free_block(start: usize, end: usize, block_size: usize) -> usize {
+    pub fn build_linked_free_block(start: usize, end: usize, block_size: usize) -> usize {
         // truncate the unaligned prefix and suffix
         let usize_align = mem::align_of::<usize>();
         let head = Self::find_next_aligned(start, usize_align);
@@ -141,90 +142,9 @@ unsafe impl KObjAllocator for DefaultKAllocator {
         }
     }
 }
-
-pub struct KObj<T, A: KObjAllocator = DefaultKAllocator>(NonNull<T>, A);
-
-impl<T, A: KObjAllocator> KObj<T, A> {
-    fn into_raw(self) -> *mut T {
-        self.0.as_ptr()
-    }
-}
-
-impl UntypedObj {
-    pub fn retype<T>(&mut self) -> Result<KObj<T>, KObjAllocErr>
-    where
-        T: Default + Sized,
-    {
-        let default_allocator = if self.inited {
-            DefaultKAllocator::bind(self)
-        } else {
-            self.inited = true;
-            DefaultKAllocator::init_from_scratch(self)
-        };
-        Self::retype_in::<T, DefaultKAllocator>(default_allocator)
-    }
-
-    // allocator passed into should be logically binded to the upper UntypedObj type
-    pub fn retype_in<T, A>(allocator: A) -> Result<KObj<T, A>, KObjAllocErr>
-    where
-        T: Default + Sized,
-        A: KObjAllocator,
-    {
-        let mut free_aligned_slot = allocator.alloc(Layout::new::<T>())?.cast::<T>();
-        unsafe {
-            // SAFETY: free_aligned_slot is well aligned, taking ref into this is safe
-            *free_aligned_slot.as_mut() = T::default();
-            Ok(KObj(free_aligned_slot, allocator))
-        }
-    }
-}
-
-impl<T, A> Deref for KObj<T, A>
-where
-    A: KObjAllocator,
-{
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        unsafe { self.0.as_ref() }
-    }
-}
-
-impl<T, A> DerefMut for KObj<T, A>
-where
-    A: KObjAllocator,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { self.0.as_mut() }
-    }
-}
-
-impl<T, A> Drop for KObj<T, A>
-where
-    A: KObjAllocator,
-{
-    fn drop(&mut self) {
-        unsafe {
-            self.1
-                .dealloc(NonNull::cast::<u8>(self.0), Layout::new::<T>())
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::capability::object::UntypedObj;
-
-    #[derive(Default)]
-    struct PageTableObj {
-        start: usize,
-        end: usize,
-    }
-
-    impl PageTableObj {
-        fn clear(&self) {
-            println!("clear this page from {} to {}", self.start, self.end);
-        }
-    }
+    use crate::capability::object::*;
 
     #[test]
     fn test_alloc() {
