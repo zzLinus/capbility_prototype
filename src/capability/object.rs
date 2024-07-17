@@ -9,19 +9,20 @@ pub enum EPState {
 
 #[derive(Copy, Clone)]
 pub struct Region {
-    start: usize,
-    end: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
 #[derive(Copy, Clone)]
 pub struct UntypedObj {
-    region: Region,
+    pub region: Region,
     used: Region,
+    pub inited: bool,
 }
 
 pub enum Kobj {
     UntypedObj(UntypedObj),
-    EndPointObj(EndPointObj<Box<IPCBuffer>,usize>),
+    EndPointObj(EndPointObj<Box<IPCBuffer>, usize>),
 }
 
 impl UntypedObj {
@@ -35,6 +36,7 @@ impl UntypedObj {
                 start: 0x0,
                 end: 0x0,
             },
+            inited: false,
         }
     }
 
