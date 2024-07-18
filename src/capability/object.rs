@@ -56,7 +56,9 @@ where
 }
 
 #[derive(Default)]
+#[repr(C)]
 pub struct PageTableObj {
+    pub is_root: usize,
     start: usize,
     end: usize,
 }
@@ -68,9 +70,11 @@ impl PageTableObj {
 }
 
 #[derive(Copy, Clone, Default)]
+#[repr(C)]
 pub struct UntypedObj {
+    pub is_root: usize,
     pub region: Region,
-    used: Region,
+    pub used: Region,
     pub inited: bool,
 }
 
@@ -105,6 +109,7 @@ impl UntypedObj {
     pub fn new(start: usize, end: usize) -> KObj_inner<UntypedObj> {
         // FIXME: root untype is now live in kernel heap
         let root = Box::into_raw(Box::new(UntypedObj {
+            is_root: 1usize,
             region: Region {
                 start: start,
                 end: end,
@@ -120,7 +125,9 @@ impl UntypedObj {
     }
 }
 
+#[repr(C)]
 pub struct EndPointObj<P, R> {
+    pub is_root: usize,
     callback: fn(P) -> R,
     ipc_buf: Option<Box<IPCBuffer>>,
 }
@@ -128,6 +135,7 @@ pub struct EndPointObj<P, R> {
 impl<P, R: std::default::Default> Default for EndPointObj<P, R> {
     fn default() -> Self {
         Self {
+            is_root: 0,
             callback: |_| Default::default(),
             ipc_buf: None,
         }
@@ -135,12 +143,6 @@ impl<P, R: std::default::Default> Default for EndPointObj<P, R> {
 }
 
 impl<R> EndPointObj<Box<IPCBuffer>, R> {
-    pub fn new(callback: fn(Box<IPCBuffer>) -> R) -> Self {
-        Self {
-            callback,
-            ipc_buf: None,
-        }
-    }
     pub fn dummy_send(&self) {
         println!("edp dummy send");
     }

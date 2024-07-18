@@ -2,12 +2,12 @@
 // `KObjAllocator` is equivalent to unstable core::alloc::Allocator API
 // used internally within kernel to allow multiple strategy deployed for untyped allocation
 
+use crate::capability::object::PageTableObj;
 use core::alloc::Layout;
 use core::mem;
 use core::ptr::NonNull;
 use core::sync::atomic::AtomicUsize;
 use core::sync::atomic::Ordering;
-use crate::capability::object::PageTableObj;
 
 use super::object::UntypedObj;
 
@@ -126,6 +126,12 @@ unsafe impl KObjAllocator for DefaultKAllocator {
     // layout is not required when dealloc because this allocator maintains a fixed block size as basic unit
     // caller should guarantee that ptr passed in lies in one block
     unsafe fn dealloc(&self, ptr: NonNull<u8>, _: Layout) {
+        let p = ptr.as_ptr() as *const usize;
+        // WARN: skip root untyped
+        if *p == 1usize {
+            return;
+        }
+
         let ptr = ptr.as_ptr() as usize;
         assert!(
             self.start <= ptr && ptr < self.end,
@@ -142,6 +148,7 @@ unsafe impl KObjAllocator for DefaultKAllocator {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::capability::object::*;
@@ -150,7 +157,7 @@ mod tests {
     fn test_alloc() {
         let buf = vec![0u8; 1024];
         let start = buf.as_ptr() as usize;
-        let mut root_untyped = UntypedObj::new(start, start + buf.len());
+        let mut root_untyped = UntypedObj::new(1usize, start, start + buf.len());
         let bunch_of_kobj = (0..4)
             .map(|_| root_untyped.retype::<PageTableObj>().unwrap())
             .collect::<Vec<_>>();

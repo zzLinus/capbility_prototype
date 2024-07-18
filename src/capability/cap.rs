@@ -37,9 +37,6 @@ pub struct Cap {
     //cap_info: CapInfo,
 }
 
-static mut G_BUFFER: [u8; 256] = [0; 256];
-static mut G_BUFFER2: [u8; 256] = [0; 256];
-
 fn callback1(_: Box<IPCBuffer>) -> usize {
     println!("callback with return gets called");
     // let dummy_buf = Box::new(IPCBuffer::default());
