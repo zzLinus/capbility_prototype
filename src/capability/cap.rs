@@ -1,10 +1,15 @@
+#![deny(clippy::perf, clippy::complexity)]
+
 use super::cdt::CdtNode;
 use super::object::*;
-use super::rights::{self, Rights};
+use super::rights::Rights;
 use super::structs::{IPCBuffer, TCB};
-use std::ops::DerefMut;
-use std::ptr;
+use lazy_static::*;
 use std::sync::{Arc, Mutex, Weak};
+
+lazy_static! {
+    static ref BUF: Vec<u8> = vec![0; 1024];
+}
 
 #[derive(Debug)]
 pub enum CapType {
@@ -55,25 +60,24 @@ impl Cap {
                     println!("mr : {} ,retypeing to {:?}", thread.ipc_buf.mrs[0], typ);
                     // TODO: allocate real memory for Kobj
                     // self.new_cap(typ);
-                    let u;
 
-                    match typ {
+                    let u = match typ {
                         CapType::Untyped => {
-                            u = Arc::new(Mutex::new(KObj::UntypedObj(
+                            Arc::new(Mutex::new(KObj::UntypedObj(
                                 x.retype::<UntypedObj>().unwrap(),
-                            )));
+                            )))
                         }
                         CapType::PageTable => {
-                            u = Arc::new(Mutex::new(KObj::PageTableObj(
+                            Arc::new(Mutex::new(KObj::PageTableObj(
                                 x.retype::<PageTableObj>().unwrap(),
-                            )));
+                            )))
                         }
                         CapType::EndPoint => {
-                            u = Arc::new(Mutex::new(KObj::EndPointObj(
+                            Arc::new(Mutex::new(KObj::EndPointObj(
                                 x.retype::<EndPointObj<Box<IPCBuffer>, usize>>().unwrap(),
-                            )));
+                            )))
                         }
-                    }
+                    };
 
                     let r: Rights = Rights::WRITE | Rights::READ;
                     let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));
@@ -131,20 +135,14 @@ impl Cap {
 
     pub fn get_root_untpye() -> (Arc<Option<Mutex<Cap>>>, Arc<Mutex<CdtNode>>) {
         println!("this is root!");
-        let buf = Box::new(vec![0u8; 1024]);
-        let start = buf.as_ptr() as usize;
+        let start = BUF.as_ptr() as usize;
 
-        // FIXME: see UntypeObj::new
-        let mut ru = UntypedObj::new(start, start + buf.len())
-            .retype::<UntypedObj>()
-            .unwrap();
+        let mut root = UntypedObj::new(start, start + BUF.len());
+        let mut tmp_r = root.retype::<UntypedObj>().unwrap();
 
-        let tmp_r = ru.deref_mut();
-        *tmp_r = UntypedObj::new(start + size_of::<UntypedObj>() + 128, start + buf.len());
+        *tmp_r = root;
 
-        println!("new untype from {:#x} to {:#x}", ru.region.start, ru.region.end);
-
-        let u = Arc::new(Mutex::new(KObj::UntypedObj(ru)));
+        let u = Arc::new(Mutex::new(KObj::UntypedObj(tmp_r)));
 
         let r: Rights = Rights::WRITE | Rights::READ;
         let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));

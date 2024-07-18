@@ -2,7 +2,6 @@
 // `KObjAllocator` is equivalent to unstable core::alloc::Allocator API
 // used internally within kernel to allow multiple strategy deployed for untyped allocation
 
-use crate::capability::object::PageTableObj;
 use core::alloc::Layout;
 use core::mem;
 use core::ptr::NonNull;
@@ -126,12 +125,6 @@ unsafe impl KObjAllocator for DefaultKAllocator {
     // layout is not required when dealloc because this allocator maintains a fixed block size as basic unit
     // caller should guarantee that ptr passed in lies in one block
     unsafe fn dealloc(&self, ptr: NonNull<u8>, _: Layout) {
-        let p = ptr.as_ptr() as *const usize;
-        // WARN: skip root untyped
-        if *p == 1usize {
-            return;
-        }
-
         let ptr = ptr.as_ptr() as usize;
         assert!(
             self.start <= ptr && ptr < self.end,

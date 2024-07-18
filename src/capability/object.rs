@@ -1,3 +1,5 @@
+#![deny(clippy::perf, clippy::complexity)]
+
 use super::structs::IPCBuffer;
 use crate::capability::alloc::*;
 use core::alloc::Layout;
@@ -19,7 +21,7 @@ pub enum KObj {
 pub struct KObj_inner<T, A: KObjAllocator = DefaultKAllocator>(NonNull<T>, A);
 
 impl<T, A: KObjAllocator> KObj_inner<T, A> {
-    fn into_raw(self) -> *mut T {
+    pub fn into_raw(self) -> *mut T {
         self.0.as_ptr()
     }
 }
@@ -104,11 +106,11 @@ impl UntypedObj {
             Ok(KObj_inner(free_aligned_slot, allocator))
         }
     }
-    pub fn new(start: usize, end: usize) -> Self {
+    pub fn new(_start: usize, _end: usize) -> Self {
         Self {
             region: Region {
-                start: start,
-                end: end,
+                start: _start,
+                end: _end,
             },
             used: Region {
                 start: 0x0,
@@ -144,7 +146,7 @@ impl<R> EndPointObj<Box<IPCBuffer>, R> {
     //     self.ipc_buf = Some(buf_ptr);
     //     IntoCapsule::add_to_job_queue(self);
     // }
-    pub fn nb_send(&self, buf_ptr: Box<IPCBuffer>) {
+    pub fn nb_send(&self) {
         //let capsule = Self {
         //    callback: self.callback,
         //    ipc_buf: Some(buf_ptr),
@@ -155,7 +157,7 @@ impl<R> EndPointObj<Box<IPCBuffer>, R> {
 
     /// blocking send
     /// in rCore,send will block this thread and schedule->nb_exec immdiately
-    pub fn send(mut self, buf_ptr: Box<IPCBuffer>) {
+    pub fn send(&self) {
         //self.ipc_buf = Some(buf_ptr);
         //match executor::block_on(IntoCapsule::add_to_job_queue(self)) {
         //    Ok(output) => output,

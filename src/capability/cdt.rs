@@ -1,6 +1,5 @@
 use super::cap::Cap;
-use super::rights::Rights;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 pub struct CdtNode {
     pub cap: Arc<Option<Mutex<Cap>>>,
