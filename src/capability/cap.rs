@@ -8,7 +8,7 @@ use lazy_static::*;
 use std::sync::{Arc, Mutex, Weak};
 
 lazy_static! {
-    static ref BUF: Vec<u8> = vec![0; 1024];
+    static ref BUF: Vec<u8> = vec![0; 1024]; // 1kb
 }
 
 #[derive(Debug)]
@@ -62,21 +62,15 @@ impl Cap {
                     // self.new_cap(typ);
 
                     let u = match typ {
-                        CapType::Untyped => {
-                            Arc::new(Mutex::new(KObj::UntypedObj(
-                                x.retype::<UntypedObj>().unwrap(),
-                            )))
-                        }
-                        CapType::PageTable => {
-                            Arc::new(Mutex::new(KObj::PageTableObj(
-                                x.retype::<PageTableObj>().unwrap(),
-                            )))
-                        }
-                        CapType::EndPoint => {
-                            Arc::new(Mutex::new(KObj::EndPointObj(
-                                x.retype::<EndPointObj<Box<IPCBuffer>, usize>>().unwrap(),
-                            )))
-                        }
+                        CapType::Untyped => Arc::new(Mutex::new(KObj::UntypedObj(
+                            x.retype::<UntypedObj>().unwrap(),
+                        ))),
+                        CapType::PageTable => Arc::new(Mutex::new(KObj::PageTableObj(
+                            x.retype::<PageTableObj>().unwrap(),
+                        ))),
+                        CapType::EndPoint => Arc::new(Mutex::new(KObj::EndPointObj(
+                            x.retype::<EndPointObj<Box<IPCBuffer>, usize>>().unwrap(),
+                        ))),
                     };
 
                     let r: Rights = Rights::WRITE | Rights::READ;
@@ -109,28 +103,23 @@ impl Cap {
     }
 
     pub fn revoke(&self) {
-        for node in &Option::as_ref(&self.cdt_node.upgrade())
-            .unwrap()
-            .lock()
-            .unwrap()
-            .child
-        {
-            node.lock().unwrap().revoke();
-        }
+        println!("revoke");
+        self.cdt_node.upgrade().unwrap().lock().unwrap().revoke();
     }
 
-    pub fn get_new_child(&self) -> Arc<Option<Mutex<Cap>>> {
-        Option::as_ref(&self.cdt_node.upgrade())
-            .unwrap()
-            .lock()
-            .unwrap()
-            .child
-            .last()
-            .unwrap()
-            .lock()
-            .unwrap()
-            .cap
-            .clone()
+    pub fn get_new_child(&self) -> Weak<Option<Mutex<Cap>>> {
+        Arc::downgrade(
+            &Option::as_ref(&self.cdt_node.upgrade())
+                .unwrap()
+                .lock()
+                .unwrap()
+                .child
+                .last()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .cap,
+        )
     }
 
     pub fn get_root_untpye() -> (Arc<Option<Mutex<Cap>>>, Arc<Mutex<CdtNode>>) {

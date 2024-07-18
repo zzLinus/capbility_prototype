@@ -125,6 +125,7 @@ unsafe impl KObjAllocator for DefaultKAllocator {
     // layout is not required when dealloc because this allocator maintains a fixed block size as basic unit
     // caller should guarantee that ptr passed in lies in one block
     unsafe fn dealloc(&self, ptr: NonNull<u8>, _: Layout) {
+        println!("drop");
         let ptr = ptr.as_ptr() as usize;
         assert!(
             self.start <= ptr && ptr < self.end,

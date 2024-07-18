@@ -7,7 +7,7 @@ pub struct CdtNode {
 }
 
 impl CdtNode {
-    pub fn new(c : Arc<Option<Mutex<Cap>>>) -> CdtNode {
+    pub fn new(c: Arc<Option<Mutex<Cap>>>) -> CdtNode {
         CdtNode {
             cap: c,
             child: Vec::new(),
@@ -15,6 +15,7 @@ impl CdtNode {
     }
 
     pub fn revoke(&mut self) {
+        println!("cdt revoke");
         self.child.clear();
     }
 }
