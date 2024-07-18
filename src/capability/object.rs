@@ -58,7 +58,6 @@ where
 #[derive(Default)]
 #[repr(C)]
 pub struct PageTableObj {
-    pub is_root: usize,
     start: usize,
     end: usize,
 }
@@ -72,7 +71,6 @@ impl PageTableObj {
 #[derive(Copy, Clone, Default)]
 #[repr(C)]
 pub struct UntypedObj {
-    pub is_root: usize,
     pub region: Region,
     pub used: Region,
     pub inited: bool,
@@ -87,6 +85,7 @@ impl UntypedObj {
             DefaultKAllocator::bind(self)
         } else {
             self.inited = true;
+            println!("alloc from {:#x} to {:#x}", self.region.start, self.region.end);
             DefaultKAllocator::init_from_scratch(self)
         };
         Self::retype_in::<T, DefaultKAllocator>(default_allocator)
@@ -105,11 +104,8 @@ impl UntypedObj {
             Ok(KObj_inner(free_aligned_slot, allocator))
         }
     }
-
-    pub fn new(start: usize, end: usize) -> KObj_inner<UntypedObj> {
-        // FIXME: root untype is now live in kernel heap
-        let root = Box::into_raw(Box::new(UntypedObj {
-            is_root: 1usize,
+    pub fn new(start: usize, end: usize) -> Self {
+        Self {
             region: Region {
                 start: start,
                 end: end,
@@ -119,15 +115,12 @@ impl UntypedObj {
                 end: 0x0,
             },
             inited: false,
-        }));
-
-        KObj_inner(NonNull::new(root).unwrap(), DefaultKAllocator::default())
+        }
     }
 }
 
 #[repr(C)]
 pub struct EndPointObj<P, R> {
-    pub is_root: usize,
     callback: fn(P) -> R,
     ipc_buf: Option<Box<IPCBuffer>>,
 }
@@ -135,7 +128,6 @@ pub struct EndPointObj<P, R> {
 impl<P, R: std::default::Default> Default for EndPointObj<P, R> {
     fn default() -> Self {
         Self {
-            is_root: 0,
             callback: |_| Default::default(),
             ipc_buf: None,
         }

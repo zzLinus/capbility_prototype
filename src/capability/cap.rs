@@ -2,6 +2,7 @@ use super::cdt::CdtNode;
 use super::object::*;
 use super::rights::{self, Rights};
 use super::structs::{IPCBuffer, TCB};
+use std::ops::DerefMut;
 use std::ptr;
 use std::sync::{Arc, Mutex, Weak};
 
@@ -134,10 +135,16 @@ impl Cap {
         let start = buf.as_ptr() as usize;
 
         // FIXME: see UntypeObj::new
-        let u = Arc::new(Mutex::new(KObj::UntypedObj(UntypedObj::new(
-            start,
-            start + buf.len(),
-        ))));
+        let mut ru = UntypedObj::new(start, start + buf.len())
+            .retype::<UntypedObj>()
+            .unwrap();
+
+        let tmp_r = ru.deref_mut();
+        *tmp_r = UntypedObj::new(start + size_of::<UntypedObj>() + 128, start + buf.len());
+
+        println!("new untype from {:#x} to {:#x}", ru.region.start, ru.region.end);
+
+        let u = Arc::new(Mutex::new(KObj::UntypedObj(ru)));
 
         let r: Rights = Rights::WRITE | Rights::READ;
         let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));

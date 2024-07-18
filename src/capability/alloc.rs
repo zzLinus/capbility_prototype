@@ -157,7 +157,7 @@ mod tests {
     fn test_alloc() {
         let buf = vec![0u8; 1024];
         let start = buf.as_ptr() as usize;
-        let mut root_untyped = UntypedObj::new(1usize, start, start + buf.len());
+        let mut root_untyped = UntypedObj::new(start, start + buf.len());
         let bunch_of_kobj = (0..4)
             .map(|_| root_untyped.retype::<PageTableObj>().unwrap())
             .collect::<Vec<_>>();
