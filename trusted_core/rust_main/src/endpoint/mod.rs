@@ -1,13 +1,25 @@
 pub mod executor;
-mod waker;
+use crate::sync::{Mutex};
+use alloc::sync::Arc;
+use crate::capability::cap::*;
+use crate::scheduler::batch::BatchScheduler;
 use crate::println;
+use core::default;
+use lazy_static::lazy_static;
 use alloc::boxed::Box;
+mod waker;
+
+lazy_static! {
+    static ref FAKE_SCHED : Arc<Mutex<BatchScheduler>> = Arc::new(Mutex::new(BatchScheduler::new()));
+    // TODO: lazy static init of KERNEL_STACK somehow fails
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct IPCBuffer {
     regs: [usize; 32],
     extra_caps: [usize; 32],
 }
+
 use executor::{CapsuleHandle, IntoCapsule};
 pub struct ReturnDataHook<R: Send>(Option<CapsuleHandle<R>>);
 
@@ -34,9 +46,19 @@ impl<R: Send> Drop for ReturnDataHook<R> {
     }
 }
 
+#[derive(Clone)]
 pub struct Endpoint<P, R> {
     callback: fn(P) -> R,
     ipc_buf: Option<Box<IPCBuffer>>,
+}
+
+impl<P, R: default::Default> Default for Endpoint<P, R> {
+    fn default() -> Self {
+        Self {
+            callback: |_| Default::default(),
+            ipc_buf: None,
+        }
+    }
 }
 
 impl<R> Endpoint<Box<IPCBuffer>, R>
@@ -107,6 +129,52 @@ fn callback2(_: Box<IPCBuffer>) {
 }
 
 pub fn test_ep() {
+    let mut s = FAKE_SCHED.lock();
+    let c = s.current_id;
+    let tcb = &mut s.tasks[c];
+    let uc1 = Cap::get_root_untpye();
+
+    // FIXME: Need to guarantee these 3 line block is atomic
+    // TODO:  Need to init Kobj after retype
+    // NOTE:  Can only retype root untype in to other kobj now
+    //        Since it is the only kobj has actual value 😂
+
+    tcb.mr.regs[0] = 1; // NOTE: Make a new PageObj
+    Option::as_ref(&uc1.0)
+        .unwrap()
+        .lock()
+        .decode_capinvok(CapInvLable::RETYPE, &tcb);
+    //NOTE: get the last children which is the EndPoint just created
+    let ec1 = Option::as_ref(&uc1.0)
+        .unwrap()
+        .lock()
+        .get_new_child();
+
+    tcb.mr.regs[0] = 1; // NOTE: Make a new PageObj
+    Option::as_ref(&uc1.0)
+        .unwrap()
+        .lock()
+        .decode_capinvok(CapInvLable::RETYPE, &tcb);
+    //NOTE: get the last children which is the EndPoint just created
+    let ec2 = Option::as_ref(&uc1.0)
+        .unwrap()
+        .lock()
+        .get_new_child();
+
+    Option::as_ref(&ec1.upgrade().unwrap())
+        .unwrap()
+        .lock()
+        .decode_capinvok(CapInvLable::PG_CLR, &tcb);
+
+    Option::as_ref(&ec2.upgrade().unwrap()) // using endpoint cap to invoke kobj funcition
+        .unwrap()
+        .lock()
+        .decode_capinvok(CapInvLable::PG_CLR, &tcb);
+
+    Option::as_ref(&uc1.0).unwrap().lock().revoke();
+
+    println!("finish");
+
     println!("starting test");
     let dummy_buf = Box::new(IPCBuffer::default());
     let ep1 = Endpoint::new(callback1);

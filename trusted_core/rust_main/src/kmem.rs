@@ -121,7 +121,7 @@ impl Kmem {
 use crate::test_framework;
 
 #[cfg(kernel_test)]
-use crate::mutex::MutexGuard;
+use crate::sync::mutex::MutexGuard;
 
 #[cfg(kernel_test)]
 use rand::RngCore;

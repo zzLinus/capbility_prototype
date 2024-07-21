@@ -1,10 +1,8 @@
 # Build the image of safeOS
 
 # Tool chain
-# TOOLCHAIN_PATH = /usr/bin
-TOOLCHAIN_PATH = /opt/riscv/bin
-# TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-elf-
-TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-linux-gnu-
+ TOOLCHAIN_PATH = /usr/bin
+ TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-elf-
 CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
 AS = $(TOOLCHAIN_PREFIX)as

@@ -25,6 +25,7 @@ mod thread;
 #[macro_use]
 mod console;
 mod syscall;
+pub mod capability;
 // use endpoint::executor::{init_kernel_executor, KERNEL_EXECUTOR};
 // use endpoint::executor::KERNEL_EXECUTOR;
 extern crate alloc;

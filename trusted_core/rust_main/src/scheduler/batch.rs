@@ -12,8 +12,8 @@ use crate::sync::Mutex;
 use crate::thread::{ThreadState, TCB};
 
 pub struct BatchScheduler {
-    current_id: usize,
-    tasks: Vec<TCB>,
+    pub current_id: usize,
+    pub tasks: Vec<TCB>,
 }
 use crate::config::*;
 use crate::trap::ret_from_user_trap;
