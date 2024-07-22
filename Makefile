@@ -77,7 +77,7 @@ rust_lib_with_tests:
 	cd $(TRUSTED_CORE_RUST_DIR) && cargo rustc -- --cfg 'kernel_test'
 
 # build all
-all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) rust_lib
+all: $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) rust_lib user_lib
 	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_ASM_OBJS) $(TRUSTED_CORE_C_OBJS) $(TRUSTED_CORE_RUST_LIB)
 
 # build test
