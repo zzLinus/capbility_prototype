@@ -3,6 +3,7 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
+// #[warn(dead_code)]
 #![allow(dead_code)]
 use core::arch::{asm, global_asm};
 use crate::{pagetable::*, timer::{CLINT_MTIME, CLINT_CMP}};
@@ -13,6 +14,7 @@ mod scheduler;
 
 #[macro_use]
 mod console;
+mod syscall;
 
 
 extern crate alloc;
@@ -141,10 +143,10 @@ extern "C" fn rust_main() {
     my_uart.init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    timer::clint_init();
     println!("safeOS is booting ...");
 
     scheduler::batch::dump_app_info();
+    scheduler::batch::load_next_and_run();
     
 
     #[cfg(kernel_test)]

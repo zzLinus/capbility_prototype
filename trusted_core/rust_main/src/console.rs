@@ -20,3 +20,14 @@ macro_rules! println
     });
 }
 
+#[macro_export]
+macro_rules! kprintln
+{
+    ($fmt:expr) => ({
+        $crate::print!(concat!("\x1b[0;32m[kernel] \x1b[0m ", $fmt, "\r\n"))
+    });
+    ($fmt:expr, $($args:tt)+) => ({
+        $crate::print!(concat!("\x1b[0;32m[kernel] \x1b[0m", $fmt, "\r\n"), $($args)+)
+    });
+}
+
