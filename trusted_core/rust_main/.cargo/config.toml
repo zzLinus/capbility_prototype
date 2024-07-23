@@ -1,3 +1,6 @@
+[profile.dev]
+incremental = false
+
 [build]
 target = "riscv64gc-unknown-none-elf"
 
