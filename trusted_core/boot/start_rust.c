@@ -14,6 +14,7 @@
 #define CLINT_CMP_VALUE 1000
 
 #define REG64(addr) ((volatile uint64_t*)addr)
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 // M mode trap vector which is implemted by assmbly language
 extern void m_trap_vector();
@@ -28,7 +29,7 @@ extern void s_trap_vector();
  * currently safeOS only provies only one context space, so it does not
  * support multiple process/thread.
  */
-__attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * CPU_NUM];
+__attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * 4];
 __attribute__ ((aligned (16))) uint64 m_trap_context[PAGE_SIZE/sizeof(uint64)];
 __attribute__ ((aligned (16))) uint64 s_trap_context[PAGE_SIZE/sizeof(uint64)];
 
@@ -63,8 +64,8 @@ void start_rust()
 	w_stvec((uint64)s_trap_vector);
 
 	// set context saving spaces for S and M mode (mscratch, sscratch)
-	mscratch_ptr = &m_trap_context[0];
-	sscratch_ptr = &s_trap_context[0];
+	mscratch_ptr = &m_trap_context[ARRAY_SIZE(m_trap_context)-1];
+	sscratch_ptr = &s_trap_context[ARRAY_SIZE(s_trap_context)-1];
 	w_mscratch((uint64)mscratch_ptr);
 	w_sscratch((uint64)sscratch_ptr);
 

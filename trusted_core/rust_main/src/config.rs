@@ -1,8 +1,6 @@
 pub const PAGE_SIZE: usize = 4096;
-pub const KERNEL_STACK_SIZE: usize = PAGE_SIZE;
-pub const USER_STACK_SIZE: usize = PAGE_SIZE;
-
-
+pub const KERNEL_STACK_SIZE: usize = PAGE_SIZE * 2;
+pub const USER_STACK_SIZE: usize = PAGE_SIZE * 2;
 
 // task configuration
 pub const MAX_NUM_TASK: usize = 16;
