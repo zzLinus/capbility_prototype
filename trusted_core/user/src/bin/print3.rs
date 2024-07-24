@@ -4,10 +4,11 @@
 #[macro_use]
 extern crate user_lib;
 
+
 #[no_mangle]
 fn main() -> i32{
-    for i in 0..100{
-        println!("hello {}", i);
+    for _ in 0..50 {
+        println!("wow")
     }
-    32
+    0
 }
