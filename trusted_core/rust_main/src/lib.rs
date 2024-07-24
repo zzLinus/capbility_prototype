@@ -157,12 +157,9 @@ pub mod test_framework;
 extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(UART_BASE);
     my_uart.init();
-    // turn off paging for a while
-    // let pagetable_kernel = vspace_init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    // timer::clint_init();
-    // pagetable_kernel.load();
+    timer::clint_init();
     kprintln!("safeOS is booting ...");
     scheduler::batch::init_task();
 

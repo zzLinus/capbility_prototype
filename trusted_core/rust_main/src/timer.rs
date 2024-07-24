@@ -2,9 +2,7 @@ use crate::cpu::r_sstatus;
 use crate::cpu::w_sstatus;
 use crate::cpu::SSTATUS_SIE;
 
-use crate::cpu::{
-    r_sip, w_sip, SIP_SSIP
-};
+use crate::cpu::{r_sip, w_sip, SIP_SSIP};
 use crate::ecall::do_ecall;
 use crate::ecall::E_TIMER;
 
@@ -22,12 +20,11 @@ pub fn clint_init() {
     }
 }
 
-
-pub fn clint_clear_and_set() {
-    clint_set_cmp();
-    w_sip(r_sip() & !SIP_SSIP);
+#[inline]
+pub fn clear_pending_tintr() {
+    // timer intr in S mode is raised by set software intr in M mode
+    w_sip(r_sip() & (!SIP_SSIP))
 }
-
 
 #[inline]
 pub fn clint_set_cmp() {
