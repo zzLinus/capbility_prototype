@@ -71,8 +71,6 @@ s_trap_vector:
 __restore_context:
 	# call convention: __restore_context(trap_context*)
 	# jump from general kernel stack allocated when booting to specified kernel stack 
-	mv sp, a0
-
 
 	# restore status register, currently only restore sstatus & sepc
 	LOAD t0, 32*REGBYTES(sp)

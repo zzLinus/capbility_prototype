@@ -30,6 +30,7 @@ extern void s_trap_vector();
  */
 __attribute__ ((aligned (16))) char kernel_stack[PAGE_SIZE * CPU_NUM];
 __attribute__ ((aligned (16))) uint64 m_trap_context[PAGE_SIZE/sizeof(uint64)];
+__attribute__ ((aligned (16))) uint64 s_trap_context[PAGE_SIZE/sizeof(uint64)];
 
 
 
@@ -43,7 +44,7 @@ __attribute__ ((aligned (16))) uint64 m_trap_context[PAGE_SIZE/sizeof(uint64)];
 //    c) set return mode to S mode (MPP, MEPC)
 void start_rust()
 {
-	uint64 *mscratch_ptr;
+	uint64 *mscratch_ptr, *sscratch_ptr;
 
 	// initialzie memory mamagement
 	// 1. set satp
@@ -51,7 +52,10 @@ void start_rust()
 	w_satp(0);
 
 	// delegate traps and interrupts to S mode
-	w_medeleg(0xFFFF);
+	// w_medeleg(0xF0FF);
+
+	// delegate U-ecall, keep S-ecall
+	w_medeleg(0xF1FF);
 	w_mideleg(0xFFFF);
 	w_mie(r_mie() | MIE_MEIE | MIE_MTIE | MIE_MSIE);
 	w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
@@ -60,7 +64,9 @@ void start_rust()
 
 	// set context saving spaces for S and M mode (mscratch, sscratch)
 	mscratch_ptr = &m_trap_context[0];
+	sscratch_ptr = &s_trap_context[0];
 	w_mscratch((uint64)mscratch_ptr);
+	w_sscratch((uint64)sscratch_ptr);
 
 	// configure PMP to allow S mode accessing all physical memory
 	w_pmpaddr0(PMP_ALL_PHY_MEM);
