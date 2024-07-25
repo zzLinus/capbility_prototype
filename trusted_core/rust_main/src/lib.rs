@@ -13,6 +13,7 @@ use crate::{
     timer::{CLINT_CMP, CLINT_MTIME},
 };
 use core::arch::{asm, global_asm};
+use log;
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 
@@ -159,8 +160,9 @@ extern "C" fn rust_main() {
     my_uart.init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
+    console::logger_init();
     timer::clint_init();
-    kprintln!("safeOS is booting ...");
+    log::info!("safeOS is booting ...");
     scheduler::batch::init_task();
 
     #[cfg(kernel_test)]
