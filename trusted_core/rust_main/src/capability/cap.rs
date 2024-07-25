@@ -1,17 +1,27 @@
-use super::{cdt::CdtNode, object::Kobj};
-use super::rights::{Rights};
-use alloc::boxed::Box;
-use crate::kernel_object::endpoint::{IPCBuffer,Endpoint};
+#![deny(clippy::perf, clippy::complexity)]
+
+use super::cdt::CdtNode;
+use super::object::{KObj, PageTableObj};
+use super::rights::Rights;
+use crate::kernel_object::endpoint::{Endpoint, IPCBuffer};
 use crate::kernel_object::untype::UntypedObj;
 use crate::kernel_object::TCB;
-use crate::sync::Mutex;
 use crate::println;
+use crate::sync::Mutex;
+use alloc::boxed::Box;
 use alloc::sync::{Arc, Weak};
-use core::ptr;
+use alloc::vec;
+use alloc::vec::Vec;
+use lazy_static::*;
+
+lazy_static! {
+    static ref BUF: Vec<u8> = vec![0; 1024]; // 1kb
+}
 
 #[derive(Debug)]
 pub enum CapType {
     Untyped,
+    PageTable,
     EndPoint,
 }
 impl TryFrom<usize> for CapType {
@@ -19,7 +29,8 @@ impl TryFrom<usize> for CapType {
     fn try_from(value: usize) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(CapType::Untyped),
-            1 => Ok(CapType::EndPoint),
+            1 => Ok(CapType::PageTable),
+            2 => Ok(CapType::EndPoint),
             _ => Err(()),
         }
     }
@@ -27,18 +38,16 @@ impl TryFrom<usize> for CapType {
 
 pub enum CapInvLable {
     RETYPE,
+    PG_CLR,
     NB_SEND,
 }
 
 #[derive(Clone)]
 pub struct Cap {
-    pub object: Arc<Kobj>,
+    pub object: Arc<Mutex<KObj>>,
     pub rights: Rights,
     pub cdt_node: Weak<Mutex<CdtNode>>,
 }
-
-static mut G_BUFFER: [u8; 256] = [0; 256];
-static mut G_BUFFER2: [u8; 256] = [0; 256];
 
 fn callback1(_: Box<IPCBuffer>) -> usize {
     println!("callback with return gets called");
@@ -47,100 +56,84 @@ fn callback1(_: Box<IPCBuffer>) -> usize {
 
 impl Cap {
     pub fn decode_capinvok(&mut self, label: CapInvLable, thread: &TCB) {
-        match &*self.object {
-            Kobj::UntypedObj(x) => match label {
+        match &mut *self.object.lock() {
+            KObj::UntypedObj(x) => match label {
                 CapInvLable::RETYPE => {
                     let typ = CapType::try_from(thread.mr.regs[0]).unwrap();
                     println!("mr : {} ,retypeing to {:?}", thread.mr.regs[0], typ);
-                    // TODO: allocate real memory for Kobj
-                    self.new_cap(typ);
+
+                    let u = match typ {
+                        CapType::Untyped => Arc::new(Mutex::new(KObj::UntypedObj(
+                            x.retype::<UntypedObj>().unwrap(),
+                        ))),
+                        CapType::PageTable => Arc::new(Mutex::new(KObj::PageTableObj(
+                            x.retype::<PageTableObj>().unwrap(),
+                        ))),
+                        CapType::EndPoint => {
+                            let mut e = x.retype::<Endpoint<Box<IPCBuffer>, usize>>().unwrap();
+                            e.ipc_buf = Some(thread.ipc_buf.clone());
+                            e.callback = callback1;
+                            Arc::new(Mutex::new(KObj::EndPointObj(e)))
+                        }
+                    };
+
+                    let r: Rights = Rights::WRITE | Rights::READ;
+                    let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));
+                    let cdt = Arc::new(Mutex::new(CdtNode::new(c.clone())));
+                    Option::as_ref(&c).unwrap().lock().cdt_node = Arc::downgrade(&cdt);
+
+                    Option::as_ref(&self.cdt_node.upgrade())
+                        .unwrap()
+                        .lock()
+                        .child
+                        .push(cdt);
                 }
                 _ => unreachable!(),
             },
 
-            Kobj::EndPointObj(x) => match label {
+            KObj::PageTableObj(x) => match label {
+                CapInvLable::PG_CLR => x.clear(),
+                _ => unreachable!(),
+            },
+
+            KObj::EndPointObj(x) => match label {
                 CapInvLable::NB_SEND => {
-                    //x.dummy_send();
+                    x.clone().send(thread.ipc_buf.clone());
                 }
                 _ => unreachable!(),
             },
-        }
-    }
-
-    fn new_cap(&mut self, typ: CapType) {
-        match typ {
-            CapType::Untyped => {
-                println!("makeing new untype");
-                let u;
-                unsafe {
-                    let ptr = ptr::addr_of_mut!(G_BUFFER2) as *mut Kobj;
-                    ptr.write(Kobj::UntypedObj(UntypedObj::new(0x00, 0x7ff)));
-                    u = Arc::from_raw(ptr)
-                };
-                let r: Rights = Rights::WRITE | Rights::READ;
-                let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));
-                let cdt = Arc::new(Mutex::new(CdtNode::new(c.clone())));
-                Option::as_ref(&c).unwrap().lock().cdt_node = Arc::downgrade(&cdt);
-
-                Option::as_ref(&self.cdt_node.upgrade())
-                    .unwrap()
-                    .lock()
-                    .child
-                    .push(cdt);
-            }
-
-            CapType::EndPoint => {
-                println!("makeing new Endpoint");
-                let u;
-                unsafe {
-                    let ptr = ptr::addr_of_mut!(G_BUFFER2) as *mut Kobj;
-                    ptr.write(Kobj::EndPointObj(Endpoint::new(callback1)));
-                    u = Arc::from_raw(ptr)
-                };
-                let r: Rights = Rights::WRITE | Rights::READ;
-                let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));
-                let cdt = Arc::new(Mutex::new(CdtNode::new(c.clone())));
-                Option::as_ref(&c).unwrap().lock().cdt_node = Arc::downgrade(&cdt);
-
-                Option::as_ref(&self.cdt_node.upgrade())
-                    .unwrap()
-                    .lock()
-                    .child
-                    .push(cdt);
-            }
         }
     }
 
     pub fn revoke(&self) {
-        for node in &Option::as_ref(&self.cdt_node.upgrade())
-            .unwrap()
-            .lock()
-            .child
-        {
-            node.lock().revoke();
-        }
+        println!("revoke");
+        self.cdt_node.upgrade().unwrap().lock().revoke();
     }
 
-    pub fn get_new_child(&self) -> Arc<Option<Mutex<Cap>>> {
-        Option::as_ref(&self.cdt_node.upgrade())
-            .unwrap()
-            .lock()
-            .child
-            .last()
-            .unwrap()
-            .lock()
-            .cap
-            .clone()
+    pub fn get_new_child(&self) -> Weak<Option<Mutex<Cap>>> {
+        Arc::downgrade(
+            &Option::as_ref(&self.cdt_node.upgrade())
+                .unwrap()
+                .lock()
+                .child
+                .last()
+                .unwrap()
+                .lock()
+                .cap,
+        )
     }
 
     pub fn get_root_untpye() -> (Arc<Option<Mutex<Cap>>>, Arc<Mutex<CdtNode>>) {
         println!("this is root!");
-        let u;
-        unsafe {
-            let ptr = ptr::addr_of_mut!(G_BUFFER) as *mut Kobj;
-            ptr.write(Kobj::UntypedObj(UntypedObj::new(0x00, 0x7ff)));
-            u = Arc::from_raw(ptr)
-        };
+        let start = BUF.as_ptr() as usize;
+
+        let mut root = UntypedObj::new(start, start + BUF.len());
+        let mut tmp_r = root.retype::<UntypedObj>().unwrap();
+
+        *tmp_r = root;
+
+        let u = Arc::new(Mutex::new(KObj::UntypedObj(tmp_r)));
+
         let r: Rights = Rights::WRITE | Rights::READ;
         let c = Arc::new(Some(Mutex::new(Cap::new(u, r, Weak::new()))));
         let cdt = Arc::new(Mutex::new(CdtNode::new(c.clone())));
@@ -149,7 +142,7 @@ impl Cap {
         (c, cdt.clone())
     }
 
-    const fn new(object: Arc<Kobj>, rights: Rights, cdt_node: Weak<Mutex<CdtNode>>) -> Cap {
+    const fn new(object: Arc<Mutex<KObj>>, rights: Rights, cdt_node: Weak<Mutex<CdtNode>>) -> Cap {
         Cap {
             object,
             rights,
