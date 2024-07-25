@@ -1,4 +1,5 @@
 use super::cap::Cap;
+use crate::println;
 use crate::sync::Mutex;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -17,6 +18,7 @@ impl CdtNode {
     }
 
     pub fn revoke(&mut self) {
+        println!("cdt revoke");
         self.child.clear();
     }
 }
