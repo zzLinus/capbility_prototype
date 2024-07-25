@@ -1,7 +1,5 @@
 use crate::cpu;
-const PAGE_SIZE: usize = 4096;
-const KERNEL_STACK_SIZE: usize = PAGE_SIZE;
-const USER_STACK_SIZE: usize = PAGE_SIZE;
+use crate::config::*;
 
 #[repr(C)]
 pub struct TrapContext{
@@ -43,14 +41,14 @@ impl TrapContext{
 }
 
 
-#[repr(align(4096))]
+// #[repr(align(4096))]
 pub struct KernelStack{
-    pub mem: [u8; KERNEL_STACK_SIZE]
+    pub mem: &'static [u8]
 }
 
 impl KernelStack{
-    pub fn new() -> Self {
-        Self {mem: [0; KERNEL_STACK_SIZE]}
+    pub fn new(mem: &'static [u8]) -> Self {
+        Self {mem}
     }
     // interior mutability required
     pub fn push_context(&self, context: TrapContext) -> &'static TrapContext{
@@ -69,17 +67,34 @@ impl KernelStack{
     }
 }
 
-#[repr(align(4096))]
+// #[repr(align(4096))]
 pub struct UserStack{
-    pub mem: [u8; USER_STACK_SIZE]
+    pub mem: &'static [u8]
 }
 
 impl UserStack{
-    pub fn new() -> Self{
-        Self {mem: [0; USER_STACK_SIZE]}
+    pub fn new(mem: &'static [u8]) -> Self{
+        Self {mem}
     }
     pub fn get_sp(&self) -> usize{
         self.mem.as_ptr() as usize + USER_STACK_SIZE
     }
 }
 
+
+// context when invoking half way through scheduler's sche
+#[repr(C)]
+pub struct ScheContext{
+    pub(crate) ra: usize, 
+    pub(crate) sp: usize,
+    // (crate)callee saved registers
+    pub(crate) s: [usize; 12]
+}
+
+
+
+impl ScheContext {
+    pub fn init_with(ra: usize, sp: usize) -> Self{
+        Self {ra, sp, s: [0; 12]}
+    }
+}

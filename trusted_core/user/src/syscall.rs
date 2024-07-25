@@ -6,7 +6,7 @@ use core::arch::asm;
     x10: also serves as ret
 */
 
-fn syscall(id: usize, args: [usize; 3]) -> isize{
+pub fn syscall(id: usize, args: [usize; 3]) -> isize{
     let ret: isize;
     unsafe {
         asm!(

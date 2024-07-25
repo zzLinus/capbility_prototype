@@ -14,7 +14,7 @@ ifeq (${MODE}, release)
 	CARGO_OPT := --release
 endif
 
-# strip elf header so that initial pc is tied to the loaded position and can start execute from there
+# build.py dynamically change linker.ld before cargo build to load each user app to different base address
 all:
-	@cargo build ${CARGO_OPT}
+	@python3 build.py
 	@$(foreach elf, ${APP_ELF}, ${OBJCOPY} ${elf} --strip-all -O binary $(patsubst ${TARGET_DIR}/%, ${TARGET_DIR}/%.bin, ${elf});)
