@@ -19,8 +19,8 @@ mod physmemallocator_slab;
 
 mod config;
 mod scheduler;
-mod thread;
-mod mutex;
+mod kernel_object;
+mod sync;
 
 #[macro_use]
 mod console;

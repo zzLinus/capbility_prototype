@@ -6,8 +6,12 @@ use alloc::vec::Vec;
 use lazy_static::lazy_static;
 
 use super::layout::ScheContext;
-use crate::mutex::Mutex;
-use crate::thread::{ThreadState, TCB};
+use crate::sync::Mutex;
+
+use crate::kernel_object::TCB;
+use crate::kernel_object::tcb::ThreadState;
+use crate::kernel_object::endpoint::KERNEL_EXECUTOR;
+
 
 use log::info;
 
@@ -105,7 +109,7 @@ pub fn dump_app_info() {
 
 pub fn load_next_and_run() {
     let mut sche = SCHEDULER.lock();
-    sche.dump_app_info();
+    KERNEL_EXECUTOR.nb_exec();
     extern "C" {
         fn __switch(src: usize, dst: usize);
     }
