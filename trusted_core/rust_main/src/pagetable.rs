@@ -13,6 +13,12 @@ pub struct PageTable {
     root_ppn: PhysPageNum,
 }
 
+impl Default for PageTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PageTable {
     pub fn new() -> Self {
         let frame = KMEM.lock().palloc(1).unwrap();
@@ -117,7 +123,6 @@ impl PTE {
     fn is_valid(&self) -> bool {
         (self.get_flags() & PTEFlags::V) != PTEFlags::empty()
     }
-
 }
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

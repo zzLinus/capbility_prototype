@@ -1,3 +1,12 @@
+/// Round-Robin Batch Executor
+///
+/// user level programs are statically compiled into the image together with necessary loading info,
+/// including the number of images. When initiated, the executor will first load each app into pre-defined memory location,
+/// according to config in crate::config::{TASK_TEXT_LIMIT, TASK_TEXT_BASE_ADDR}.
+///
+/// Sche Policy
+/// When a timer interrupt is triggered, the executor will cyclically find the next runnable/uninited thread and switch to it
+/// Interrupts are turned off during the switching process.
 use core::arch::{asm, global_asm};
 use core::slice;
 
@@ -6,12 +15,12 @@ use alloc::vec::Vec;
 use lazy_static::lazy_static;
 
 use super::layout::ScheContext;
+use crate::kprintln;
 use crate::sync::Mutex;
 
-use crate::kernel_object::TCB;
-use crate::kernel_object::tcb::ThreadState;
 use crate::kernel_object::endpoint::KERNEL_EXECUTOR;
-
+use crate::kernel_object::tcb::ThreadState;
+use crate::kernel_object::TCB;
 
 use log::info;
 
@@ -22,10 +31,9 @@ pub struct BatchScheduler {
 use crate::config::*;
 use crate::trap::ret_from_user_trap;
 
-// introduce interior mutability + thread safety throught Arc<Mutex>
 lazy_static! {
+    /// introduce interior mutability & thread safety throught Arc<Mutex>
     static ref SCHEDULER: Arc<Mutex<BatchScheduler>> = Arc::new(Mutex::new(BatchScheduler::new()));
-    // TODO: lazy static init of KERNEL_STACK somehow fails
 }
 
 #[repr(align(4096))]
@@ -51,8 +59,6 @@ impl BatchScheduler {
         let app_code_addr =
             unsafe { Vec::from_raw_parts(ptr.add(1) as *mut usize, num_app + 1, MAX_NUM_TASK) };
 
-        // potential bug in lazy_static: avoid entering into large memory alloc postone this
-        // TODO: fix this logic
         let tasks: Vec<TCB> = (0..num_app)
             .map(|id| {
                 let (s_addr, e_addr) = (app_code_addr[id], app_code_addr[id + 1]);
@@ -75,6 +81,7 @@ impl BatchScheduler {
     fn load_app(id: usize, s_addr: usize, e_addr: usize) -> usize {
         let num_bytes = e_addr - s_addr;
         assert!(num_bytes <= TASK_TEXT_LIMIT);
+        // SAFETY: memory for src/dst slice is reserved in linker script
         let src = unsafe { slice::from_raw_parts(s_addr as *const u8, num_bytes) };
         let dst_s_addr = (TASK_TEXT_BASE_ADDR + id * TASK_TEXT_LIMIT) as *mut u8;
         let dst = unsafe { slice::from_raw_parts_mut(dst_s_addr, TASK_TEXT_LIMIT) };
@@ -98,7 +105,7 @@ impl BatchScheduler {
 
     pub fn dump_app_info(&self) {
         for (id, tcb) in self.tasks.iter().enumerate() {
-            info!("[app {}]: {:?}", id, tcb);
+            kprintln!("[app {}]: {:?}", id, tcb);
         }
     }
 }
@@ -108,11 +115,12 @@ pub fn dump_app_info() {
 }
 
 pub fn load_next_and_run() {
-    let mut sche = SCHEDULER.lock();
     KERNEL_EXECUTOR.nb_exec();
+    let mut sche = SCHEDULER.lock();
     extern "C" {
         fn __switch(src: usize, dst: usize);
     }
+
     // state of current running thread should be changed prior entering `sche`
     match sche.find_next_runnable() {
         Some(switch_dst) => {
@@ -137,7 +145,7 @@ pub fn load_next_and_run() {
 }
 pub fn init_task() {
     // currently just takes the first and run
-    // hack: set first src to be a dummy ctx, which will be released when exit the func
+    // HACK: set first src to be a dummy ctx, which will be released when exit the func
     let dummy_sche_ctx = ScheContext::init_with(0, 0);
 
     // force sche to drop
@@ -149,6 +157,7 @@ pub fn init_task() {
         &first_tcb.sche_ctx as *const _ as usize
     };
     ret_from_user_trap();
+    info!("finish loading task");
     extern "C" {
         fn __switch(src: usize, dst: usize);
     }

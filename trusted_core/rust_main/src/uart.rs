@@ -1,7 +1,7 @@
 // UART driver
 
-use core::fmt::Write;
 use core::fmt::Error;
+use core::fmt::Write;
 
 pub struct Uart {
     base_address: usize,
@@ -18,9 +18,7 @@ impl Write for Uart {
 
 impl Uart {
     pub fn new(base_address: usize) -> Self {
-        Uart {
-            base_address,
-        }
+        Uart { base_address }
     }
 
     pub fn init(&mut self) {
@@ -60,12 +58,10 @@ impl Uart {
             if ptr.add(5).read_volatile() & 1 == 0 {
                 // The DR bit is 0, meaning no data
                 None
-            }
-            else {
+            } else {
                 // The DR bit is 1, meaning data!
                 Some(ptr.add(0).read_volatile())
             }
         }
-
     }
 }

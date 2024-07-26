@@ -21,11 +21,9 @@ extern "C" fn user_trap(ctx: &mut TrapContext) -> &TrapContext {
     assert!(r_scause() & SSTATUS_SPP == 0);
     w_stvec(__kernel_trap_vector as usize);
 
-    // kprintln!("scause: {:#x} =? {:#x}", ctx.scause, r_scause());
     let scause = r_scause();
     match scause {
         U_ECALL => {
-            // kprintln!("syscall id: {:#x}", ctx.registers[17]);
             turn_on_s_intr();
             let syscall_id = ctx.registers[17];
             let args: [usize; 3] = ctx.registers[10..13].try_into().unwrap();

@@ -1,11 +1,22 @@
 #![no_std]
 #![allow(dead_code)]
 #![allow(internal_features)]
-#![allow(clippy::style)]
+// styling
+#![allow(
+    clippy::cognitive_complexity,
+    clippy::large_enum_variant,
+    clippy::empty_loop,
+    clippy::too_many_arguments,
+    clippy::upper_case_acronyms
+)]
+// explicitness
+#![allow(clippy::missing_transmute_annotations, clippy::useless_conversion)]
+#![deny(unused_must_use)]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
+#![feature(noop_waker)]
 
 // #[warn(dead_code)]
 use crate::{
@@ -13,13 +24,12 @@ use crate::{
     timer::{CLINT_CMP, CLINT_MTIME},
 };
 use core::arch::{asm, global_asm};
-use log;
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 
 mod config;
-mod scheduler;
 mod kernel_object;
+mod scheduler;
 mod sync;
 
 #[macro_use]
@@ -29,6 +39,8 @@ extern crate alloc;
 const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
 
+use log::{info, warn};
+
 global_asm!(include_str!("link_app.S"));
 
 #[no_mangle]
@@ -36,16 +48,16 @@ extern "C" fn eh_personality() {}
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    print!("Aborting: ");
+    warn!("Aborting: ");
     if let Some(p) = info.location() {
-        println!(
+        warn!(
             "line {}, file {}: {}",
             p.line(),
             p.file(),
             info.message().unwrap()
         );
     } else {
-        println!("no information available.");
+        warn!("no information available.");
     }
     abort();
 }
@@ -73,20 +85,20 @@ extern "C" {
 }
 
 fn vspace_init() -> PageTable {
-    println!(
+    info!(
         ".text [{:#x}, {:#x})",
         kernel_base as usize, text_end as usize
     );
-    println!(
+    info!(
         ".rodata [{:#x}, {:#x})",
         rodata_start as usize, rodata_end as usize
     );
-    println!(
+    info!(
         ".data [{:#x}, {:#x})",
         data_start as usize, data_end as usize
     );
-    println!(".bss [{:#x}, {:#x})", bss_start as usize, bss_end as usize);
-    println!("heap  [{:#x}, {:#x})", heap_start as usize, end as usize);
+    info!(".bss [{:#x}, {:#x})", bss_start as usize, bss_end as usize);
+    info!("heap  [{:#x}, {:#x})", heap_start as usize, end as usize);
 
     let mut pagetable_kernel = PageTable::new();
     let mut start_temp: VirtPageNum = vpn_align_down(kernel_base as usize);
@@ -125,15 +137,15 @@ fn vspace_init() -> PageTable {
         pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
-    start_temp = vpn_align_down(UART_BASE as usize);
-    end_temp = vpn_align_up(UART_END as usize);
+    start_temp = vpn_align_down(UART_BASE);
+    end_temp = vpn_align_up(UART_END);
     for vpn in start_temp.0..end_temp.0 {
         pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
     }
 
-    start_temp = vpn_align_down(CLINT_MTIME as usize);
+    start_temp = vpn_align_down(CLINT_MTIME);
     pagetable_kernel.page_map(start_temp.0, start_temp.0, PTEFlags::R | PTEFlags::W);
-    start_temp = vpn_align_down(CLINT_CMP as usize);
+    start_temp = vpn_align_down(CLINT_CMP);
     pagetable_kernel.page_map(start_temp.0, start_temp.0, PTEFlags::R | PTEFlags::W);
 
     pagetable_kernel
@@ -144,27 +156,28 @@ pub mod ecall;
 pub mod globalallocator_impl;
 pub mod kmem;
 pub mod pagetable;
+#[cfg(kernel_test)]
+pub mod test_framework;
 pub mod timer;
 pub mod trap;
 pub mod uart;
 pub mod vma;
 pub mod vspace;
 
-#[cfg(kernel_test)]
-pub mod test_framework;
-
 #[no_mangle]
-// rust language entry point, C start() jumps here
+/// rust language entry point, C start() jumps here
+/// currently pagetable is turned off and it should be activated
+/// after PageTable Object is integrated into the kernel
 extern "C" fn rust_main() {
     let mut my_uart = uart::Uart::new(UART_BASE);
     my_uart.init();
     globalallocator_impl::init_mm();
     cpu::w_sstatus(cpu::r_sstatus() | cpu::SSTATUS_SIE);
-    console::logger_init();
     timer::clint_init();
-    log::info!("safeOS is booting ...");
-    scheduler::batch::init_task();
+    console::logger_init();
+    info!("safeOS is booting ...");
 
+    scheduler::batch::init_task();
     #[cfg(kernel_test)]
     test_framework::test_main();
 
