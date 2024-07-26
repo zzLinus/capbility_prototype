@@ -39,7 +39,7 @@ pub fn read_mtime() -> usize {
     let mtime_ptr: *mut usize = CLINT_MTIME as *mut usize;
     unsafe {
         let rval: usize = mtime_ptr.read_volatile();
-        return rval;
+        rval
     }
 }
 

@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 pub mod channel;
 pub mod condvar;
 pub mod mutex;

@@ -4,7 +4,6 @@ mod waker;
 use alloc::boxed::Box;
 use executor::{CapsuleHandle, IntoCapsule};
 
-
 #[derive(Debug, Default, Clone)]
 pub struct IPCBuffer {
     regs: [usize; 32],

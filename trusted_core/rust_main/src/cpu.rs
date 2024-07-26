@@ -48,7 +48,7 @@ pub fn r_mhartid() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, mhartid", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -56,7 +56,7 @@ pub fn r_mstatus() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, mstatus", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -76,7 +76,7 @@ pub fn r_sstatus() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, sstatus", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -90,7 +90,7 @@ pub fn r_sip() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, sip", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -104,7 +104,7 @@ pub fn r_sie() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, sie", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -118,7 +118,7 @@ pub fn r_mie() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, mie", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -132,7 +132,7 @@ pub fn r_sepc() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, sepc", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -146,7 +146,7 @@ pub fn r_medeleg() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, medeleg", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -160,7 +160,7 @@ pub fn r_mideleg() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, mideleg", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -174,7 +174,7 @@ pub fn r_stvec() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, stvec", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -188,7 +188,7 @@ pub fn r_mtvec() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, mtvec", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -220,7 +220,7 @@ pub fn r_satp() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, satp", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -240,7 +240,7 @@ pub fn r_scause() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, scause", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -248,7 +248,7 @@ pub fn r_stval() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, stval", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -262,7 +262,7 @@ pub fn r_mcounteren() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, mcounteren", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -270,7 +270,7 @@ pub fn r_time() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, time", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -291,7 +291,7 @@ pub fn r_sp() -> usize {
     unsafe {
         let rval;
         asm!("mv {0}, sp", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -299,7 +299,7 @@ pub fn r_tp() -> usize {
     unsafe {
         let rval;
         asm!("mv {0}, tp", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -313,7 +313,7 @@ pub fn r_ra() -> usize {
     unsafe {
         let rval;
         asm!("mv {0}, ra", out(reg) rval);
-        return rval;
+        rval
     }
 }
 
@@ -327,7 +327,7 @@ pub fn r_() -> usize {
     unsafe {
         let rval;
         asm!("csrr {0}, sie", out(reg) rval);
-        return rval;
+        rval
     }
 }
 

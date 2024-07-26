@@ -3,6 +3,7 @@
 # Tool chain
 TOOLCHAIN_PATH = /usr/bin
 TOOLCHAIN_PREFIX = $(TOOLCHAIN_PATH)/riscv64-unknown-elf-
+
 CC = $(TOOLCHAIN_PREFIX)gcc
 LD = $(TOOLCHAIN_PREFIX)ld
 AS = $(TOOLCHAIN_PREFIX)as
@@ -68,8 +69,12 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 
 .PHONY: rust_lib rust_lib_with_tests
 
+clippy:
+	@cd $(TRUSTED_CORE_RUST_DIR) && \
+	cargo fmt && cargo clippy
+
 # build rust libs
-rust_lib:
+rust_lib: clippy
 	cd $(TRUSTED_CORE_RUST_DIR) && cargo build
 
 # build rust libs with tests
@@ -95,7 +100,6 @@ QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
 qemu: all
 	cd $(BUILD_DIR) && dd if=/dev/zero of=$(BUILD_DIR)/hdd.dsk bs=1M count=32
 	$(QEMU) $(QEMUOPTS)
-#	$(QEMU) -machine $(MACH) -cpu $(CPU) -smp $(CPU_NUM) -m $(MEM)  -nographic -serial mon:stdio -bios none -kernel $(TARGET) -drive if=none,format=raw,file=$(DRIVE),id=foo -device virtio-blk-device,scsi=off,drive=foo
 
 # run qemu with gdb
 QEMUGDB = -S -gdb tcp::26000

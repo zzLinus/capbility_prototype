@@ -1,12 +1,11 @@
-#[warn(dead_code)]
 use core::alloc::Layout;
 use core::cmp::{max, min};
-use core::ptr;
 use core::mem::size_of;
 use core::num::Wrapping;
+use core::ptr;
 extern crate alloc;
 
-const TWO_M_SIZE: usize = 2*1024*1024;
+const TWO_M_SIZE: usize = 2 * 1024 * 1024;
 const MIN_HEAP_ALIGN: usize = TWO_M_SIZE;
 const MAX_LISTS_NUM: usize = 27;
 const MIN_BLOCK_SIZE: usize = 4096;
@@ -95,7 +94,8 @@ impl BuddyAllocator {
     }
 
     pub unsafe fn deallocate(&mut self, region: PhysMemory, layout: Layout) {
-        let initial_order = self.allocation_order(layout)
+        let initial_order = self
+            .allocation_order(layout)
             .expect("This is a invalid block");
         let mut block = region.base;
         for order in initial_order..self.free_lists.len() {
@@ -130,7 +130,7 @@ impl BuddyAllocator {
     // Calculate order(2^order) and the index `free_lists[order]`.
     fn allocation_order(&self, layout: Layout) -> Option<usize> {
         self.allocation_size(layout)
-            .map(|s| {(s.log2_2() - self.min_block_size_log2) as usize })
+            .map(|s| (s.log2_2() - self.min_block_size_log2) as usize)
     }
 
     fn order_size(&self, order: usize) -> usize {
@@ -158,7 +158,7 @@ impl BuddyAllocator {
         while order > order_needed {
             size_of_splitblock >>= 1;
             order -= 1;
-            let split = block.offset(size_of_splitblock as isize);
+            let split = block.add(size_of_splitblock);
             self.free_list_dealloc(order, split);
         }
     }
@@ -170,14 +170,14 @@ impl BuddyAllocator {
     unsafe fn buddy(&self, order: usize, block: *mut u8) -> Option<*mut u8> {
         let buddy_block = (block as usize) - (self.region.base as usize);
         let size = self.order_size(order);
-        if size >= self.region.size as usize {
+        if size >= self.region.size {
             None
         } else {
-            Some(self.region.base.offset((buddy_block ^ size) as isize))
+            Some(self.region.base.add(buddy_block ^ size))
         }
     }
 
-    unsafe fn free_list_remove (&mut self, order: usize, block: *mut u8) -> bool {
+    unsafe fn free_list_remove(&mut self, order: usize, block: *mut u8) -> bool {
         let block_ptr = block as *mut FreeBlock;
         let mut trace_ptr: *mut *mut FreeBlock = &mut self.free_lists[order];
         while !((*trace_ptr).is_null()) {
@@ -209,7 +209,7 @@ pub trait CalculateOf2 {
 
 impl CalculateOf2 for usize {
     fn multiple_of_2(self) -> bool {
-        self !=0 && (self & (self - 1)) == 0
+        self != 0 && (self & (self - 1)) == 0
     }
     //Find a power of 2 greater than the input
     fn next_power_of_2(self) -> usize {
@@ -227,7 +227,7 @@ impl CalculateOf2 for usize {
             v = v | (v >> 32);
         }
         v += Wrapping(1);
-        let result = match v { Wrapping(v) => v };
+        let Wrapping(result) = v;
         assert!(result.multiple_of_2());
         assert!(result >= self && self > result >> 1);
         result
