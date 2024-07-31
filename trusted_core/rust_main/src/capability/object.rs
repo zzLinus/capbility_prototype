@@ -1,6 +1,6 @@
-use crate::kernel_object::endpoint::{IPCBuffer,Endpoint};
+use super::alloc::{DefaultKAllocator, KObjAllocator};
+use crate::kernel_object::endpoint::IPCBuffer;
 use crate::kernel_object::untype::UntypedObj;
-use crate::println;
 use alloc::boxed::Box;
 
 #[derive(PartialEq, Copy, Clone, Eq, Debug)]
