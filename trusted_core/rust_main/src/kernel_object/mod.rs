@@ -3,6 +3,7 @@ pub mod endpoint;
 pub mod tcb;
 pub mod frame;
 pub mod page_table;
+pub mod asid;
 
 mod page_util;
 
