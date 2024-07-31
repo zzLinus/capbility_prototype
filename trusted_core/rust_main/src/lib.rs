@@ -162,7 +162,6 @@ pub mod timer;
 pub mod trap;
 pub mod uart;
 pub mod vma;
-pub mod vspace;
 
 #[no_mangle]
 /// rust language entry point, C start() jumps here
