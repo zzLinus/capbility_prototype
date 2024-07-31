@@ -25,8 +25,8 @@ use crate::kernel_object::TCB;
 use log::info;
 
 pub struct BatchScheduler {
-    pub current_id: usize,
-    pub tasks: Vec<TCB>,
+    current_id: usize,
+    tasks: Vec<TCB>,
 }
 use crate::config::*;
 use crate::trap::ret_from_user_trap;
