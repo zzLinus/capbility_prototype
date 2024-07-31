@@ -6,8 +6,8 @@ use executor::{CapsuleHandle, IntoCapsule};
 
 #[derive(Debug, Default, Clone)]
 pub struct IPCBuffer {
-    regs: [usize; 32],
-    extra_caps: [usize; 32],
+    pub regs: [usize; 32],
+    pub extra_caps: [usize; 32],
 }
 pub struct ReturnDataHook<R: Send>(Option<CapsuleHandle<R>>);
 
@@ -51,8 +51,8 @@ impl<R: Send> Drop for ReturnDataHook<R> {
 ///  let result = result_fut.block();
 /// ```
 pub struct Endpoint<P, R> {
-    callback: fn(P) -> R,
-    ipc_buf: Option<Box<IPCBuffer>>,
+    pub callback: fn(P) -> R,
+    pub ipc_buf: Option<Box<IPCBuffer>>,
 }
 
 impl<R> Endpoint<Box<IPCBuffer>, R>
