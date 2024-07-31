@@ -4,4 +4,5 @@
 pub mod cap;
 pub mod cdt;
 pub mod object;
+pub mod alloc;
 mod rights;
