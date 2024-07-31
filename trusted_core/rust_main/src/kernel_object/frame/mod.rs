@@ -28,7 +28,7 @@ impl Frame {
 
         for (i, level) in levels.iter().enumerate() {
             let pte = &mut target_pt.get_pte_array()[*level];
-            // if not found, than create
+            // if not found, then create
             if !pte.is_valid() {
                 *pte = PTE::new(
                     map_pt_num,
