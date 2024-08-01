@@ -31,6 +31,7 @@ mod config;
 mod kernel_object;
 mod scheduler;
 mod sync;
+mod capability;
 
 #[macro_use]
 mod console;
@@ -54,7 +55,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             "line {}, file {}: {}",
             p.line(),
             p.file(),
-            info.message().unwrap()
+            info.message()
         );
     } else {
         warn!("no information available.");

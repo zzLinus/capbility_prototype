@@ -25,6 +25,7 @@ impl SatpT {
     }
 }
 
+#[derive(Default)]
 pub struct PageTable {
     pub root_ppn: PhysPageNum,
 }

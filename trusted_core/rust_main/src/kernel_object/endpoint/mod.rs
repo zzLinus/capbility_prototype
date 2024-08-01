@@ -1,4 +1,5 @@
 pub mod executor;
+use core::default;
 pub use executor::KERNEL_EXECUTOR;
 mod waker;
 use alloc::boxed::Box;
@@ -6,8 +7,8 @@ use executor::{CapsuleHandle, IntoCapsule};
 
 #[derive(Debug, Default, Clone)]
 pub struct IPCBuffer {
-    regs: [usize; 32],
-    extra_caps: [usize; 32],
+    pub regs: [usize; 32],
+    pub extra_caps: [usize; 32],
 }
 pub struct ReturnDataHook<R: Send>(Option<CapsuleHandle<R>>);
 
@@ -50,9 +51,19 @@ impl<R: Send> Drop for ReturnDataHook<R> {
 ///  // either explicitly block on `result_fut` otherwise it will be automatically blocked on drop()
 ///  let result = result_fut.block();
 /// ```
+#[derive(Clone)]
 pub struct Endpoint<P, R> {
-    callback: fn(P) -> R,
-    ipc_buf: Option<Box<IPCBuffer>>,
+    pub callback: fn(P) -> R,
+    pub ipc_buf: Option<Box<IPCBuffer>>,
+}
+
+impl<P, R: default::Default> Default for Endpoint<P, R> {
+    fn default() -> Self {
+        Self {
+            callback: |_| Default::default(),
+            ipc_buf: None,
+        }
+    }
 }
 
 impl<R> Endpoint<Box<IPCBuffer>, R>

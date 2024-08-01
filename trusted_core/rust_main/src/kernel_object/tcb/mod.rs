@@ -1,4 +1,8 @@
-use crate::scheduler::layout::{KernelStack, ScheContext, TrapContext, UserStack};
+use crate::{
+    kernel_object::endpoint::IPCBuffer,
+    scheduler::layout::{KernelStack, ScheContext, TrapContext, UserStack},
+};
+use alloc::boxed::Box;
 use core::fmt::{Debug, Formatter};
 
 #[derive(Debug)]
@@ -10,11 +14,13 @@ pub enum ThreadState {
     Uninit,
 }
 
+
 pub struct TCB {
     pub(crate) k_stack: KernelStack,
     pub(crate) u_stack: UserStack,
     pub(crate) sche_ctx: ScheContext,
     pub(crate) state: ThreadState,
+    pub(crate) ipc_buf: Box<IPCBuffer>,
 }
 
 impl Debug for TCB {
@@ -48,6 +54,7 @@ impl TCB {
             u_stack,
             sche_ctx,
             state: ThreadState::Uninit,
+            ipc_buf: Box::new(IPCBuffer::default()),
         }
     }
 }
