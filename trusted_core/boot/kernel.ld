@@ -10,6 +10,9 @@ SECTIONS
   . = 0x80000000;
   PROVIDE(kernel_base = .);
 
+  /* Define __executable_start at the beginning */
+  PROVIDE(__executable_start = .);
+
   .text : {
     *(.text.entry)
     *(.text .text.*)
@@ -19,6 +22,8 @@ SECTIONS
     . = ALIGN(0x1000);
     /* ASSERT(. - _trampoline == 0x1000, "error: trampoline larger than one page"); */
     PROVIDE(text_end = .);
+    /* Define __etext at the end of .text section */
+    PROVIDE(__etext = .);
   }
 
   .rodata : {
@@ -48,9 +53,24 @@ SECTIONS
     PROVIDE(bss_end = .);
   }
 
+  .eh_frame : {
+    . = ALIGN(8);
+    PROVIDE(__eh_frame_start = .); /* Declare __eh_frame symbol */
+    PROVIDE(__eh_frame = .); /* Declare __eh_frame symbol */
+
+    KEEP (*(.eh_frame))      /* Include .eh_frame section */
+    *(.eh_frame.*)
+    PROVIDE(__eh_frame_end = .); /* Declare __eh_frame symbol */
+  }
+  
+  .gcc_except_table :
+	{
+		*(.gcc_except_table .gcc_except_table.*)
+	}
+  
   . = ALIGN(4096);
   heap_start = .;
-  heap_end = . + 0x4000000;
+  heap_end = . + 0x8000000;
   . = heap_end;
 
   PROVIDE(end = .);

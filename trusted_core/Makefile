@@ -6,11 +6,15 @@ bootlib:
 userlib:
 	$(MAKE) --directory=user
 
-all:bootlib userlib	
+clippy:
+	cd rust_main
+	cargo fmt && cargo clippy
+
+all:bootlib userlib	clippy
 	cd rust_main && cargo build
 
 test:bootlib userlib
-	cd rust_main && cargo build --features test_linkme	
+	cd rust_main && cargo build --features test_linkme	--cfg kernel_test
 
 clippy:
 	for module in $(RUST_MODULES); do \

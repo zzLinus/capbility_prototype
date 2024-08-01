@@ -18,6 +18,9 @@
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
 #![feature(noop_waker)]
+#![feature(lang_items)]
+#![allow(unexpected_cfgs)]
+#![feature(naked_functions)]
 
 // #[warn(dead_code)]
 use crate::{
@@ -50,15 +53,23 @@ const UART_END: usize = 0x1000_1000;
 use log::{info, warn};
 
 global_asm!(include_str!("link_app.S"));
-
+#[lang = "eh_personality"]
 #[no_mangle]
 extern "C" fn eh_personality() {}
+#[inline(never)]
+#[no_mangle]
+pub unsafe extern "C-unwind" fn _Unwind_Resume() {}
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     warn!("Aborting: ");
     if let Some(p) = info.location() {
-        warn!("line {}, file {}: {:?}", p.line(), p.file(), info.message());
+        warn!(
+            "line {}, file {}: {}",
+            p.line(),
+            p.file(),
+            info.message().unwrap()
+        );
     } else {
         warn!("no information available.");
     }
