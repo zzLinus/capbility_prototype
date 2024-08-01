@@ -1,7 +1,7 @@
 use crate::kernel_object::untype::UntypedObj;
+use crate::kernel_object::page_table::PageTable;
 use crate::capability::alloc::{DefaultKAllocator,KObjAllocator};
 use crate::kernel_object::endpoint::{IPCBuffer,Endpoint};
-use crate::println;
 use core::ops::{Deref, DerefMut};
 use core::alloc::Layout;
 use core::ptr::NonNull;
@@ -9,7 +9,7 @@ use alloc::boxed::Box;
 
 pub enum Kobj {
     UntypedObj(KobjInner<UntypedObj>),
-    PageTableObj(KobjInner<PageTableObj>),
+    PageTableObj(KobjInner<PageTable>),
     EndPointObj(KobjInner<Endpoint<Box<IPCBuffer>, usize>>),
 }
 
@@ -51,17 +51,3 @@ where
         }
     }
 }
-
-#[derive(Default)]
-#[repr(C)]
-pub struct PageTableObj {
-    start: usize,
-    end: usize,
-}
-
-impl PageTableObj {
-    pub fn clear(&self) {
-        println!("clear this page from {} to {}", self.start, self.end);
-    }
-}
-

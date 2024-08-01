@@ -1,9 +1,11 @@
 #![deny(clippy::perf, clippy::complexity)]
 
 use super::cdt::CdtNode;
-use super::object::{Kobj, PageTableObj};
+use super::object::Kobj;
 use super::rights::Rights;
 use crate::kernel_object::endpoint::{Endpoint, IPCBuffer};
+use crate::kernel_object::page_table::PageTable;
+use crate::kernel_object::page_util::PhysPageNum;
 use crate::kernel_object::untype::UntypedObj;
 use crate::kernel_object::TCB;
 use crate::println;
@@ -38,7 +40,7 @@ impl TryFrom<usize> for CapType {
 
 pub enum CapInvLable {
     RETYPE,
-    PG_CLR,
+    PG_MAP,
     NB_SEND,
 }
 
@@ -62,7 +64,7 @@ impl Cap {
                             x.retype::<UntypedObj>().unwrap(),
                         ))),
                         CapType::PageTable => Arc::new(Mutex::new(Kobj::PageTableObj(
-                            x.retype::<PageTableObj>().unwrap(),
+                            x.retype::<PageTable>().unwrap(),
                         ))),
                         CapType::EndPoint => {
                             let mut e = x.retype::<Endpoint<Box<IPCBuffer>, usize>>().unwrap();
@@ -86,7 +88,10 @@ impl Cap {
             },
 
             Kobj::PageTableObj(x) => match label {
-                CapInvLable::PG_CLR => x.clear(),
+                CapInvLable::PG_MAP => {
+                    let fake_ppn: PhysPageNum = Default::default();
+                    x.page_table_map(0, fake_ppn);
+                }
                 _ => unreachable!(),
             },
 
