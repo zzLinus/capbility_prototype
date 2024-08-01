@@ -13,7 +13,9 @@ rand = { version = "0.8.5", default-features = false }
 rand_pcg = "0.3.1"
 log = "0.4"
 cross_crate = { path = "../cross_crate", optional = true }
+test_client = { path = "../../test_client", optional = true }
+test_server = { path = "../../test_server", optional = true }
 
 [features]
 default = []
-test_linkme = ["cross_crate"]
+test_linkme = ["cross_crate","test_server","test_client"]

@@ -28,16 +28,22 @@ use core::arch::{asm, global_asm};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 
+mod capability;
 mod config;
 mod kernel_object;
 mod scheduler;
 mod sync;
-mod capability;
 
 #[macro_use]
 mod console;
 mod syscall;
 extern crate alloc;
+#[cfg(feature = "test_linkme")]
+extern crate cross_crate;
+#[cfg(feature = "test_linkme")]
+extern crate test_client;
+#[cfg(feature = "test_linkme")]
+extern crate test_server;
 const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
 
@@ -52,12 +58,7 @@ extern "C" fn eh_personality() {}
 fn panic(info: &core::panic::PanicInfo) -> ! {
     warn!("Aborting: ");
     if let Some(p) = info.location() {
-        warn!(
-            "line {}, file {}: {:?}",
-            p.line(),
-            p.file(),
-            info.message()
-        );
+        warn!("line {}, file {}: {:?}", p.line(), p.file(), info.message());
     } else {
         warn!("no information available.");
     }
@@ -177,10 +178,14 @@ extern "C" fn rust_main() {
     timer::clint_init();
     console::logger_init();
     info!("safeOS is booting ...");
-
+    #[cfg(feature = "test_linkme")]
+    unsafe {
+        type TestFunc = fn() -> usize;
+        let func1 = cross_crate::get_func::<TestFunc>("test_server", "spawn").unwrap();
+        println!("func1: {:#x}", func1());
+    }
     scheduler::batch::init_task();
     #[cfg(kernel_test)]
     test_framework::test_main();
-
     loop {}
 }
