@@ -5,4 +5,3 @@ incremental = false
 target = "riscv64gc-unknown-none-elf"
 
 [target.riscv64gc-unknown-none-elf]
-linker = "riscv64-unknown-none-elf"

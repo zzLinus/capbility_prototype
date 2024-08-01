@@ -1,4 +1,5 @@
 #![no_std]
+#![no_main]
 #![allow(dead_code)]
 #![allow(internal_features)]
 // styling
@@ -52,7 +53,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     warn!("Aborting: ");
     if let Some(p) = info.location() {
         warn!(
-            "line {}, file {}: {}",
+            "line {}, file {}: {:?}",
             p.line(),
             p.file(),
             info.message()

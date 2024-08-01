@@ -2,9 +2,12 @@ use std::fs::{read_dir, File};
 use std::io::{Result, Write};
 
 fn main() {
-    println!("cargo:rerun-if-changed=../user/src/");
-    println!("cargo:rerun-if-changed={}", TARGET_PATH);
-    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo::rerun-if-changed=../user/src/");
+    println!("cargo::rerun-if-changed={}", TARGET_PATH);
+    println!("cargo::rerun-if-changed=build.rs");
+    println!("cargo::rustc-link-search=native=../boot");
+    println!("cargo::rustc-link-lib=static=bootc");
+    println!("cargo::rustc-link-arg=-T../boot/kernel.ld");
     insert_app_data().unwrap();
 }
 
