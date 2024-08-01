@@ -4,6 +4,7 @@ use std::io::{Result, Write};
 fn main() {
     println!("cargo:rerun-if-changed=../user/src/");
     println!("cargo:rerun-if-changed={}", TARGET_PATH);
+    println!("cargo:rerun-if-changed=build.rs");
     insert_app_data().unwrap();
 }
 

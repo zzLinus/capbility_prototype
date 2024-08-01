@@ -18,3 +18,6 @@ endif
 all:
 	@python3 build.py
 	@$(foreach elf, ${APP_ELF}, ${OBJCOPY} ${elf} --strip-all -O binary $(patsubst ${TARGET_DIR}/%, ${TARGET_DIR}/%.bin, ${elf});)
+
+clean:
+	cargo clean
