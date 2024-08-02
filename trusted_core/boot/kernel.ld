@@ -11,7 +11,8 @@ SECTIONS
   PROVIDE(kernel_base = .);
 
   .text : {
-    *(.text.entry .text*)
+    *(.text.entry)
+    *(.text .text.*)
     . = ALIGN(0x1000);
     _trampoline = .;
     *(trampsec)

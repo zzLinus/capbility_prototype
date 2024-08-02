@@ -13,7 +13,6 @@ TRUSTED_CORE_BOOT_CLIB		?= libbootc.a
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
 
 all:$(TRUSTED_CORE_BOOT_CLIB)
-	echo $(TRUSTED_CORE_BOOT_CLIB)
 
 $(TRUSTED_CORE_BOOT_CLIB):$(OBJECTS)
 	$(AR) rcs $@ $^

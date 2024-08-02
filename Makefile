@@ -19,9 +19,7 @@ LDFLAGS = -z max-page-size=4096
 # Target
 TARGET = $(BUILD_DIR)/safeos.elf
 TRUSTED_CORE_RUST_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main/target/$(RUST_TOOLCHAIN_TARGET)/$(RUST_BUILD_TYPE)
-TRUSTED_CORE_BOOT_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/boot
-TRUSTED_CORE_BOOT_LIB = $(TRUSTED_CORE_BOOT_LIB_DIR)/libbootc.a
-TRUSTED_CORE_RUST_LIB = $(TRUSTED_CORE_RUST_LIB_DIR)/librust_main.a
+TRUSTED_CORE_RUST_BIN = $(TRUSTED_CORE_RUST_LIB_DIR)/rust_main
 
 # qemu
 QEMU = qemu-system-riscv64
@@ -38,26 +36,16 @@ $(BUILD_DIR)/%.o: $(ROOT_DIR)/%.c
 	@echo CC $<
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: rust_lib rust_lib_with_tests
-
-clippy:
-	@cd $(TRUSTED_CORE_RUST_DIR) && \
-	cargo fmt && cargo clippy
-
-# build rust libs
-rust_lib: clippy
-	cd $(TRUSTED_CORE_RUST_DIR) && cargo build
-
 # build all
 all: $(BUILD_DIR)
 	$(MAKE) --directory=$(TRUSTED_CORE_SRC_DIR) all
-	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_BOOT_LIB) $(TRUSTED_CORE_RUST_LIB)
-	
+	cp $(TRUSTED_CORE_RUST_BIN) $(TARGET)
+
 # build test
 test: $(BUILD_DIR)
 	$(MAKE) --directory=$(TRUSTED_CORE_SRC_DIR) test
-	$(LD) $(LDFLAGS) -T$(LINKER_SCRIPT) -o $(TARGET) $(TRUSTED_CORE_BOOT_LIB) $(TRUSTED_CORE_RUST_LIB)
-
+	cp $(TRUSTED_CORE_RUST_BIN) $(TARGET)
+	
 # build and run qemu image
 CPU_NUM = 1
 QEMUOPTS = -machine virt -bios none -kernel $(TARGET) -m 128M -smp $(CPU_NUM) -nographic

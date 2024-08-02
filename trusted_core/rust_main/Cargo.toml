@@ -5,9 +5,6 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-crate-type = ["staticlib"]
-
 [dependencies]
 bitflags = "1.2.1"
 crossbeam-queue = { version = "0.3.11", default-features = false, features = ["alloc"]}
@@ -15,3 +12,10 @@ lazy_static = { version = "1.5.0", features = ["spin_no_std"]}
 rand = { version = "0.8.5", default-features = false }
 rand_pcg = "0.3.1"
 log = "0.4"
+cross_crate = { path = "../cross_crate", optional = true }
+test_client = { path = "../../test_client", optional = true }
+test_server = { path = "../../test_server", optional = true }
+
+[features]
+default = []
+test_linkme = ["cross_crate","test_server","test_client"]
