@@ -3,18 +3,10 @@ use core::fmt;
 use core::ops;
 use gimli::{Register, RiscV};
 
-// Match DWARF_FRAME_REGISTERS in libgcc
-pub const MAX_REG_RULES: usize = 65;
-
-#[cfg(all(target_feature = "f", not(target_feature = "d")))]
-compile_error!("RISC-V with only F extension is not supported");
-
 #[repr(C)]
 #[derive(Clone, Default)]
 pub struct Context {
     pub gp: [usize; 32],
-    #[cfg(target_feature = "d")]
-    pub fp: [usize; 32],
 }
 
 impl fmt::Debug for Context {
@@ -22,13 +14,6 @@ impl fmt::Debug for Context {
         let mut fmt = fmt.debug_struct("Context");
         for i in 0..=31 {
             fmt.field(RiscV::register_name(Register(i as _)).unwrap(), &self.gp[i]);
-        }
-        #[cfg(target_feature = "d")]
-        for i in 0..=31 {
-            fmt.field(
-                RiscV::register_name(Register((i + 32) as _)).unwrap(),
-                &self.fp[i],
-            );
         }
         fmt.finish()
     }
@@ -40,8 +25,6 @@ impl ops::Index<Register> for Context {
     fn index(&self, reg: Register) -> &usize {
         match reg {
             Register(0..=31) => &self.gp[reg.0 as usize],
-            #[cfg(target_feature = "d")]
-            Register(32..=63) => &self.fp[(reg.0 - 32) as usize],
             _ => unimplemented!(),
         }
     }
@@ -51,8 +34,6 @@ impl ops::IndexMut<gimli::Register> for Context {
     fn index_mut(&mut self, reg: Register) -> &mut usize {
         match reg {
             Register(0..=31) => &mut self.gp[reg.0 as usize],
-            #[cfg(target_feature = "d")]
-            Register(32..=63) => &mut self.fp[(reg.0 - 32) as usize],
             _ => unimplemented!(),
         }
     }
@@ -78,22 +59,6 @@ macro_rules! code {
         sd s9, 0xC8(sp)
         sd s10, 0xD0(sp)
         sd s11, 0xD8(sp)
-        "
-    };
-    (save_fp) => {
-        "
-        fsd fs0, 0x140(sp)
-        fsd fs1, 0x148(sp)
-        fsd fs2, 0x190(sp)
-        fsd fs3, 0x198(sp)
-        fsd fs4, 0x1A0(sp)
-        fsd fs5, 0x1A8(sp)
-        fsd fs6, 0x1B0(sp)
-        fsd fs7, 0x1B8(sp)
-        fsd fs8, 0x1C0(sp)
-        fsd fs9, 0x1C8(sp)
-        fsd fs10, 0x1D0(sp)
-        fsd fs11, 0x1D8(sp)
         "
     };
     (restore_gp) => {
@@ -130,69 +95,11 @@ macro_rules! code {
         ld t6, 0xF8(a0)
         "
     };
-    (restore_fp) => {
-        "
-        fld ft0, 0x100(a0)
-        fld ft1, 0x108(a0)
-        fld ft2, 0x110(a0)
-        fld ft3, 0x118(a0)
-        fld ft4, 0x120(a0)
-        fld ft5, 0x128(a0)
-        fld ft6, 0x130(a0)
-        fld ft7, 0x138(a0)
-        fld fs0, 0x140(a0)
-        fld fs1, 0x148(a0)
-        fld fa0, 0x150(a0)
-        fld fa1, 0x158(a0)
-        fld fa2, 0x160(a0)
-        fld fa3, 0x168(a0)
-        fld fa4, 0x170(a0)
-        fld fa5, 0x178(a0)
-        fld fa6, 0x180(a0)
-        fld fa7, 0x188(a0)
-        fld fs2, 0x190(a0)
-        fld fs3, 0x198(a0)
-        fld fs4, 0x1A0(a0)
-        fld fs5, 0x1A8(a0)
-        fld fs6, 0x1B0(a0)
-        fld fs7, 0x1B8(a0)
-        fld fs8, 0x1C0(a0)
-        fld fs9, 0x1C8(a0)
-        fld fs10, 0x1D0(a0)
-        fld fs11, 0x1D8(a0)
-        fld ft8, 0x1E0(a0)
-        fld ft9, 0x1E8(a0)
-        fld ft10, 0x1F0(a0)
-        fld ft11, 0x1F8(a0)
-        "
-    };
 }
 
 #[naked]
 pub extern "C-unwind" fn save_context(f: extern "C" fn(&mut Context, *mut ()), ptr: *mut ()) {
     // No need to save caller-saved registers here.
-    #[cfg(target_feature = "d")]
-    unsafe {
-        asm!(
-            "
-            mv t0, sp
-            add sp, sp, -0x210
-            sd ra, 0x200(sp)
-            ",
-            code!(save_gp),
-            code!(save_fp),
-            "
-            mv t0, a0
-            mv a0, sp
-            jalr t0
-            ld ra, 0x200(sp)
-            add sp, sp, 0x210
-            ret
-            ",
-            options(noreturn)
-        );
-    }
-    #[cfg(not(target_feature = "d"))]
     unsafe {
         asm!(
             "
@@ -215,20 +122,6 @@ pub extern "C-unwind" fn save_context(f: extern "C" fn(&mut Context, *mut ()), p
 }
 
 pub unsafe fn restore_context(ctx: &Context) -> ! {
-    #[cfg(target_feature = "d")]
-    unsafe {
-        asm!(
-            code!(restore_fp),
-            code!(restore_gp),
-            "
-            ld a0, 0x50(a0)
-            ret
-            ",
-            in("a0") ctx,
-            options(noreturn)
-        );
-    }
-    #[cfg(not(target_feature = "d"))]
     unsafe {
         asm!(
             code!(restore_gp),
@@ -236,7 +129,7 @@ pub unsafe fn restore_context(ctx: &Context) -> ! {
             ld a0, 0x50(a0)
             ret
             ",
-            in("a0") ctx,
+            in("a0")ctx,
             options(noreturn)
         );
     }

@@ -2,10 +2,10 @@ use alloc::boxed::Box;
 use core::any::Any;
 use core::mem::MaybeUninit;
 
-use crate::abi::*;
+use super::abi::*;
 #[cfg(feature = "panic-handler")]
-pub use crate::panic_handler::*;
-use crate::panicking::Exception;
+pub use super::panic_handler::*;
+use super::panicking::Exception;
 
 static CANARY: u8 = 0;
 
@@ -20,7 +20,7 @@ impl Drop for DropGuard {
         {
             drop_panic();
         }
-        crate::util::abort();
+        crate::abort();
     }
 }
 
@@ -52,7 +52,7 @@ unsafe impl Exception for RustPanic {
             {
                 foreign_exception();
             }
-            crate::util::abort();
+            crate::abort();
         }
         let ex = unsafe { Box::from_raw(ex) };
         ex.payload
@@ -60,7 +60,7 @@ unsafe impl Exception for RustPanic {
 }
 
 pub fn begin_panic(payload: Box<dyn Any + Send>) -> UnwindReasonCode {
-    crate::panicking::begin_panic(RustPanic(payload, DropGuard))
+    super::panicking::begin_panic(RustPanic(payload, DropGuard))
 }
 
 pub fn catch_unwind<R, F: FnOnce() -> R>(f: F) -> Result<R, Box<dyn Any + Send>> {
@@ -72,7 +72,7 @@ pub fn catch_unwind<R, F: FnOnce() -> R>(f: F) -> Result<R, Box<dyn Any + Send>>
                 {
                     foreign_exception();
                 }
-                crate::util::abort();
+                crate::abort();
             }
             Some(e) => {
                 #[cfg(feature = "panic-handler")]
@@ -84,5 +84,5 @@ pub fn catch_unwind<R, F: FnOnce() -> R>(f: F) -> Result<R, Box<dyn Any + Send>>
             }
         }
     }
-    crate::panicking::catch_unwind(f).map_err(process_panic)
+    super::panicking::catch_unwind(f).map_err(process_panic)
 }

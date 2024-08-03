@@ -57,7 +57,6 @@ SECTIONS
     . = ALIGN(8);
     PROVIDE(__eh_frame_start = .); /* Declare __eh_frame symbol */
     PROVIDE(__eh_frame = .); /* Declare __eh_frame symbol */
-
     KEEP (*(.eh_frame))      /* Include .eh_frame section */
     *(.eh_frame.*)
     PROVIDE(__eh_frame_end = .); /* Declare __eh_frame symbol */

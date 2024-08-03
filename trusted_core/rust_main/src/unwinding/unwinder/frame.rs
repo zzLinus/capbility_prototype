@@ -6,35 +6,13 @@ use gimli::{Evaluation, EvaluationResult, Location, Value};
 
 use super::arch::*;
 use super::find_fde::{self, FDEFinder, FDESearchResult};
-use crate::abi::PersonalityRoutine;
-use crate::arch::*;
-use crate::util::*;
-
+use crate::unwinding::{abi::PersonalityRoutine, arch::*, util::*};
 struct StoreOnStack;
 
-// gimli's MSRV doesn't allow const generics, so we need to pick a supported array size.
-const fn next_value(x: usize) -> usize {
-    let supported = [0, 1, 2, 3, 4, 8, 16, 32, 64, 128];
-    let mut i = 0;
-    while i < supported.len() {
-        if supported[i] >= x {
-            return supported[i];
-        }
-        i += 1;
-    }
-    192
-}
-
+//The length of Rules should br carefully set in case of stack overflow
 impl<O: gimli::ReaderOffset> gimli::UnwindContextStorage<O> for StoreOnStack {
-    type Rules = [(Register, RegisterRule<O>); next_value(MAX_REG_RULES)];
+    type Rules = [(Register, RegisterRule<O>); 32];
     type Stack = [UnwindTableRow<O, Self>; 2];
-}
-
-#[cfg(feature = "dwarf-expr")]
-impl<R: gimli::Reader> gimli::EvaluationStorage<R> for StoreOnStack {
-    type Stack = [Value; 64];
-    type ExpressionStack = [(R, R); 0];
-    type Result = [gimli::Piece<R>; 1];
 }
 
 #[derive(Debug)]
@@ -54,7 +32,7 @@ impl Frame {
 
         // RA points to the *next* instruction, so move it back 1 byte for the call instruction.
         if !signal {
-            ra -= 1;
+            ra -= 4;
         }
 
         let fde_result = match find_fde::get_finder().find_fde(ra as _) {

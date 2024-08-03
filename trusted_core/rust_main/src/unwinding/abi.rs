@@ -1,12 +1,9 @@
+use super::util::*;
 use core::ffi::c_void;
+use core::fmt;
 use core::ops;
 
-use crate::util::*;
-
-#[cfg(not(feature = "unwinder"))]
-use crate::arch::Arch;
-#[cfg(feature = "unwinder")]
-pub use crate::unwinder::*;
+pub use super::unwinder::*;
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -23,6 +20,27 @@ impl UnwindReasonCode {
     pub const HANDLER_FOUND: Self = Self(6);
     pub const INSTALL_CONTEXT: Self = Self(7);
     pub const CONTINUE_UNWIND: Self = Self(8);
+}
+
+impl fmt::Debug for UnwindReasonCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let description = match self.0 {
+            0 => "NO_REASON",
+            1 => "FOREIGN_EXCEPTION_CAUGHT",
+            2 => "FATAL_PHASE2_ERROR",
+            3 => "FATAL_PHASE1_ERROR",
+            4 => "NORMAL_STOP",
+            5 => "END_OF_STACK",
+            6 => "HANDLER_FOUND",
+            7 => "INSTALL_CONTEXT",
+            8 => "CONTINUE_UNWIND",
+            _ => "UNKNOWN_REASON",
+        };
+        f.debug_struct("UnwindReasonCode")
+            .field("code", &self.0)
+            .field("description", &description)
+            .finish()
+    }
 }
 
 #[repr(transparent)]
@@ -69,23 +87,8 @@ pub type UnwindStopFn = unsafe extern "C" fn(
     *mut c_void,
 ) -> UnwindReasonCode;
 
-#[cfg(not(feature = "unwinder"))]
-#[repr(C)]
-pub struct UnwindException {
-    pub exception_class: u64,
-    pub exception_cleanup: Option<UnwindExceptionCleanupFn>,
-    private: [usize; Arch::UNWIND_PRIVATE_DATA_SIZE],
-}
-
 pub type UnwindTraceFn =
     extern "C" fn(ctx: &UnwindContext<'_>, arg: *mut c_void) -> UnwindReasonCode;
-
-#[cfg(not(feature = "unwinder"))]
-#[repr(C)]
-pub struct UnwindContext<'a> {
-    opaque: usize,
-    phantom: core::marker::PhantomData<&'a ()>,
-}
 
 pub type PersonalityRoutine = unsafe extern "C" fn(
     c_int,
@@ -95,30 +98,6 @@ pub type PersonalityRoutine = unsafe extern "C" fn(
     &mut UnwindContext<'_>,
 ) -> UnwindReasonCode;
 
-#[cfg(not(feature = "unwinder"))]
-macro_rules! binding {
-    () => {};
-    (unsafe extern $abi: literal fn $name: ident ($($arg: ident : $arg_ty: ty),*$(,)?) $(-> $ret: ty)?; $($rest: tt)*) => {
-        extern $abi {
-            pub fn $name($($arg: $arg_ty),*) $(-> $ret)?;
-        }
-        binding!($($rest)*);
-    };
-
-    (extern $abi: literal fn $name: ident ($($arg: ident : $arg_ty: ty),*$(,)?) $(-> $ret: ty)?; $($rest: tt)*) => {
-        #[allow(non_snake_case)]
-        #[inline]
-        pub fn $name($($arg: $arg_ty),*) $(-> $ret)? {
-            extern $abi {
-                fn $name($($arg: $arg_ty),*) $(-> $ret)?;
-            }
-            unsafe { $name($($arg),*) }
-        }
-        binding!($($rest)*);
-    };
-}
-
-#[cfg(feature = "unwinder")]
 macro_rules! binding {
     () => {};
     (unsafe extern $abi: literal fn $name: ident ($($arg: ident : $arg_ty: ty),*$(,)?) $(-> $ret: ty)?; $($rest: tt)*) => {

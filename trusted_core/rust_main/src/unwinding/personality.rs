@@ -7,9 +7,9 @@ use core::mem;
 use gimli::{constants, NativeEndian};
 use gimli::{EndianSlice, Error, Pointer, Reader};
 
-use crate::abi::*;
-use crate::arch::*;
-use crate::util::*;
+use super::abi::*;
+use super::arch::*;
+use super::util::*;
 
 #[derive(Debug)]
 enum EHAction {

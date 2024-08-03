@@ -6,15 +6,12 @@ use core::ffi::c_void;
 use core::ptr;
 use gimli::Register;
 
-use crate::abi::*;
-use crate::arch::*;
-use crate::util::*;
+use super::abi::*;
+use super::arch::Arch;
+use super::util::*;
 use arch::*;
 use find_fde::FDEFinder;
 use frame::Frame;
-
-#[cfg(feature = "fde-custom")]
-pub use find_fde::custom_eh_frame_finder;
 
 // Helper function to turn `save_context` which takes function pointer to a closure-taking function.
 fn with_context<T, F: FnOnce(&mut Context) -> T>(f: F) -> T {

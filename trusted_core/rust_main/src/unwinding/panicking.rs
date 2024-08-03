@@ -1,7 +1,7 @@
+use super::abi::*;
+use crate::{print, println};
+use core::ffi::c_void;
 use core::mem::ManuallyDrop;
-
-use crate::abi::*;
-
 pub unsafe trait Exception {
     const CLASS: [u8; 8];
 
@@ -16,6 +16,8 @@ pub fn begin_panic<E: Exception>(exception: E) -> UnwindReasonCode {
     ) {
         unsafe { E::unwrap(exception) };
     }
+
+    stack_trace();
 
     let ex = E::wrap(exception);
     unsafe {
@@ -68,4 +70,20 @@ pub fn catch_unwind<E: Exception, R, F: FnOnce() -> R>(f: F) -> Result<R, Option
             *data = ManuallyDrop::new(Some(E::unwrap(exception)));
         }
     }
+}
+
+pub fn stack_trace() {
+    struct CallbackData {
+        counter: usize,
+    }
+    extern "C" fn callback(unwind_ctx: &UnwindContext<'_>, arg: *mut c_void) -> UnwindReasonCode {
+        let data = unsafe { &mut *(arg as *mut CallbackData) };
+        data.counter += 1;
+        println!("{:4}:{:#19x}", data.counter, _Unwind_GetIP(unwind_ctx));
+        UnwindReasonCode::NO_REASON
+    }
+    let mut data = CallbackData { counter: 0 };
+    println!("-----------BackTrace---------------");
+    _Unwind_Backtrace(callback, &mut data as *mut _ as _);
+    println!("--------------end------------------");
 }

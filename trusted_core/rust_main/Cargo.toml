@@ -16,7 +16,6 @@ cross_crate = { path = "../cross_crate", optional = true }
 test_client = { path = "../../test_client", optional = true }
 test_server = { path = "../../test_server", optional = true }
 
-
 [dependencies.gimli]
 version = "0.31.0"
 default-features = false
@@ -32,4 +31,4 @@ panic = "unwind"
 fde-static = []
 fde-gnu-eh-frame-hdr = []
 test_linkme = ["cross_crate","test_server","test_client"]
-default = ["fde-gnu-eh-frame-hdr"]
+default = ["fde-static"]

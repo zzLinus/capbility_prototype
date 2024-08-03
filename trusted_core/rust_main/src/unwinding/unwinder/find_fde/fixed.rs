@@ -1,5 +1,5 @@
 use super::FDESearchResult;
-use crate::util::*;
+use crate::unwinding::util::get_unlimited_slice;
 
 use gimli::{BaseAddresses, EhFrame, NativeEndian, UnwindSection};
 
@@ -12,7 +12,8 @@ pub fn get_finder() -> &'static StaticFinder {
 extern "C" {
     static __executable_start: u8;
     static __etext: u8;
-    static __eh_frame: u8;
+    static __eh_frame_start: u8;
+    static __eh_frame_end: u8;
 }
 
 impl super::FDEFinder for StaticFinder {
@@ -24,7 +25,9 @@ impl super::FDEFinder for StaticFinder {
                 return None;
             }
 
-            let eh_frame = &__eh_frame as *const u8 as usize;
+            let eh_frame = &__eh_frame_start as *const u8 as usize;
+            let eh_frame_end = &__eh_frame_end as *const u8 as usize;
+
             let bases = BaseAddresses::default()
                 .set_eh_frame(eh_frame as _)
                 .set_text(text_start as _);

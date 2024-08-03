@@ -9,7 +9,7 @@ mod phdr;
 #[cfg(feature = "fde-registry")]
 mod registry;
 
-use crate::util::*;
+use crate::unwinding::util::*;
 use gimli::{BaseAddresses, EhFrame, FrameDescriptionEntry};
 
 #[cfg(feature = "fde-custom")]

@@ -14,7 +14,7 @@ all:bootlib userlib	clippy
 	cd rust_main && cargo build
 
 test:bootlib userlib
-	cd rust_main && cargo build --features test_linkme	--cfg kernel_test
+	cd rust_main && cargo build --features test_linkme	
 
 clippy:
 	for module in $(RUST_MODULES); do \
