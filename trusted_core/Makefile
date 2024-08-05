@@ -1,3 +1,5 @@
+RUST_MODULES 		:= rust_main cross_crate user
+
 bootlib:
 	$(MAKE) --directory=boot
 
@@ -10,6 +12,16 @@ all:bootlib userlib
 test:bootlib userlib
 	cd rust_main && cargo build --features test_linkme	
 
+clippy:
+	for module in $(RUST_MODULES); do \
+		cd $$module && cargo clippy&&cd ..; \
+	done
+
+fmt:
+	for module in $(RUST_MODULES); do \
+		cd $$module && cargo fmt --all && cd ..; \
+	done
+	
 .PHONY:clean
 clean:
 	$(MAKE) --directory=user clean

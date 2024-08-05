@@ -69,6 +69,14 @@ qemu-test: test
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
+# cargo clippy
+clippy:
+	$(MAKE) --directory=$(TRUSTED_CORE_SRC_DIR) clippy
+	
+# cargo fmt
+fmt:
+	$(MAKE) --directory=$(TRUSTED_CORE_SRC_DIR) fmt
+
 # clean
 clean:
 	$(MAKE) --directory=$(TRUSTED_CORE_SRC_DIR) clean
