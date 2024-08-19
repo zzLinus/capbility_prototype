@@ -14,11 +14,12 @@ TRUSTED_CORE_RUST_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main
 # compiler options, borrowed from xv6-riscv
 LINKER_SCRIPT = $(TRUSTED_CORE_SRC_DIR)/boot/kernel.ld
 
-LDFLAGS = -z max-page-size=4096
+LDFLAGS = -z max-page-size=4096 --eh-frame-hdr --gc-sections
 
 # Target
 TARGET = $(BUILD_DIR)/safeos.elf
-TRUSTED_CORE_RUST_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/rust_main/target/$(RUST_TOOLCHAIN_TARGET)/$(RUST_BUILD_TYPE)
+TRUSTED_CORE_RUST_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/target/$(RUST_TOOLCHAIN_TARGET)/$(RUST_BUILD_TYPE)
+TRUSTED_CORE_BOOT_LIB_DIR = $(TRUSTED_CORE_SRC_DIR)/boot/build
 TRUSTED_CORE_RUST_BIN = $(TRUSTED_CORE_RUST_LIB_DIR)/rust_main
 
 # qemu

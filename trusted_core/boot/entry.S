@@ -45,7 +45,7 @@ _entry:
         li t0, 0
         csrs mstatus, t0
         la sp, kernel_stack
-        li a0, 4096*4
+        li a0, 4096*32
         csrr a1, mhartid
         addi a1, a1, 1
         mul a0, a0, a1

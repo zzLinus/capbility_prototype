@@ -18,6 +18,9 @@
 #![feature(const_mut_refs)]
 #![feature(core_intrinsics)]
 #![feature(noop_waker)]
+#![feature(lang_items)]
+#![allow(unexpected_cfgs)]
+#![feature(naked_functions)]
 
 // #[warn(dead_code)]
 use crate::{
@@ -33,6 +36,7 @@ mod config;
 mod kernel_object;
 mod scheduler;
 mod sync;
+mod unwinding;
 
 #[macro_use]
 mod console;
@@ -47,22 +51,28 @@ extern crate test_server;
 const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
 
-use log::{info, warn};
+use alloc::{borrow::ToOwned, boxed::Box};
+use log::{error, info, warn};
+use unwinding::panic::catch_unwind;
 
 global_asm!(include_str!("link_app.S"));
-
-#[no_mangle]
-extern "C" fn eh_personality() {}
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     warn!("Aborting: ");
     if let Some(p) = info.location() {
-        warn!("line {}, file {}: {:?}", p.line(), p.file(), info.message());
+        warn!(
+            "line {}, file {}: {}",
+            p.line(),
+            p.file(),
+            info.message().unwrap()
+        );
     } else {
         warn!("no information available.");
     }
-    abort();
+    let reason = unwinding::panic::begin_panic(Box::new("unwind"));
+    error!("unwind returned with code {:?}", reason);
+    unreachable!();
 }
 #[no_mangle]
 extern "C" fn abort() -> ! {
@@ -184,7 +194,7 @@ extern "C" fn rust_main() {
         let func1 = cross_crate::get_func::<TestFunc>("test_server", "spawn").unwrap();
         println!("func1: {:#x}", func1());
     }
-    scheduler::batch::init_task();
+    let _res = catch_unwind(|| scheduler::batch::init_task());
     #[cfg(kernel_test)]
     test_framework::test_main();
     loop {}

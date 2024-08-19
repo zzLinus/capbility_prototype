@@ -10,7 +10,7 @@ GDB := $(TOOLCHAIN_PREFIX)gdb
 OBJCOPY := $(TOOLCHAIN_PREFIX)objcopy
 OBJDUMP := $(TOOLCHAIN_PREFIX)objdump
 RUST_BUILD_TYPE := debug
-RUST_TOOLCHAIN_TARGET := riscv64gc-unknown-none-elf
+RUST_TOOLCHAIN_TARGET := riscv64-unknown-safeos
 
 CFLAGS = -Wall -Werror -O -fno-omit-frame-pointer -ggdb
 CFLAGS += -MD

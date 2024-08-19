@@ -5,13 +5,13 @@ fn main() {
     println!("cargo::rerun-if-changed=../user/src/");
     println!("cargo::rerun-if-changed={}", TARGET_PATH);
     println!("cargo::rerun-if-changed=build.rs");
-    println!("cargo::rustc-link-search=native=../boot");
+    println!("cargo::rustc-link-search=native=boot/build");
     println!("cargo::rustc-link-lib=static=bootc");
-    println!("cargo::rustc-link-arg=-T../boot/kernel.ld");
+    println!("cargo::rustc-link-arg=-Tboot/kernel.ld");
     insert_app_data().unwrap();
 }
 
-static TARGET_PATH: &str = "../user/target/riscv64gc-unknown-none-elf/release/";
+static TARGET_PATH: &str = "target/riscv64-unknown-safeos/release/";
 
 fn insert_app_data() -> Result<()> {
     let mut f = File::create("src/link_app.S").unwrap();

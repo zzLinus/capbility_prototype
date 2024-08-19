@@ -6,7 +6,11 @@ bootlib:
 userlib:
 	$(MAKE) --directory=user
 
-all:bootlib userlib	
+clippy:
+	cd rust_main
+	cargo fmt && cargo clippy
+
+all:bootlib userlib	clippy
 	cd rust_main && cargo build
 
 test:bootlib userlib

@@ -12,6 +12,8 @@ use crate::vspace::vspace_test;
 
 use crate::physmemallocator_slab::slab_tests::slab_test_main;
 
+use crate::unwinding::kernel_tests::unwind_test;
+
 pub struct TestResult {
     pub passed: u32,
     pub failed: u32,
@@ -31,6 +33,7 @@ pub fn test_main() {
         TestlistElem(slab_test_main, String::from("slab_test_main")),
         TestlistElem(vma_test, String::from("vma_test")),
         TestlistElem(vspace_test, String::from("vspace_test")),
+        TestlistElem(unwind_test, String::from("unwind_test")),
     ];
 
     println!("Start testing.");

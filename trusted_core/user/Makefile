@@ -1,6 +1,6 @@
-TARGET := riscv64gc-unknown-none-elf
+TARGET := riscv64-unknown-safeos
 MODE := release
-TARGET_DIR := target/${TARGET}/${MODE}
+TARGET_DIR := ../target/${TARGET}/${MODE}
 
 APP_DIR := src/bin
 APP_SRC := $(wildcard ${APP_DIR}/*.rs)
