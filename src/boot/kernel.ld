@@ -1,0 +1,84 @@
+OUTPUT_ARCH( "riscv" )
+ENTRY( _entry )
+
+SECTIONS
+{
+  /*
+   * ensure that entry.S / _entry is at 0x80000000,
+   * where qemu's -kernel jumps.
+   */
+  . = 0x80000000;
+  PROVIDE(kernel_base = .);
+
+  /* Define __executable_start at the beginning */
+  PROVIDE(__executable_start = .);
+
+  .text : {
+    *(.text.entry)
+    *(.text .text.*)
+    . = ALIGN(0x1000);
+    _trampoline = .;
+    *(trampsec)
+    . = ALIGN(0x1000);
+    /* ASSERT(. - _trampoline == 0x1000, "error: trampoline larger than one page"); */
+    PROVIDE(text_end = .);
+    /* Define __etext at the end of .text section */
+    PROVIDE(__etext = .);
+  }
+
+  .rodata : {
+    . = ALIGN(16);
+    PROVIDE(rodata_start = .);
+    *(.srodata .srodata.*) /* do not need to distinguish this from .rodata */
+    . = ALIGN(16);
+    *(.rodata .rodata.*)
+    PROVIDE(rodata_end = .);
+  }
+
+  .data : {
+    . = ALIGN(16);
+    PROVIDE(data_start = .);
+    *(.sdata .sdata.*) /* do not need to distinguish this from .data */
+    . = ALIGN(16);
+    *(.data .data.*)
+    PROVIDE(data_end = .);
+  }
+
+  .bss : {
+    . = ALIGN(16);
+    PROVIDE(bss_start = .);
+    *(.sbss .sbss.*) /* do not need to distinguish this from .bss */
+    . = ALIGN(16);
+    *(.bss .bss.*)
+    PROVIDE(bss_end = .);
+  }
+
+  .eh_frame : {
+    . = ALIGN(8);
+    PROVIDE(__eh_frame_start = .); /* Declare __eh_frame symbol */
+    PROVIDE(__eh_frame = .); /* Declare __eh_frame symbol */
+    KEEP (*(.eh_frame))      /* Include .eh_frame section */
+    *(.eh_frame.*)
+    PROVIDE(__eh_frame_end = .); /* Declare __eh_frame symbol */
+  }
+  
+  .eh_frame_hdr : {
+    . = ALIGN(8);
+    PROVIDE(__GNU_EH_FRAME_HDR = .);
+    KEEP(*(.eh_frame_hdr))
+    *(.eh_frame_hdr.*)
+  }
+  
+  .gcc_except_table :
+	{
+		*(.gcc_except_table .gcc_except_table.*)
+	}
+  
+  . = ALIGN(4096);
+  heap_start = .;
+  heap_end = . + 0x8000000;
+  . = heap_end;
+
+  PROVIDE(end = .);
+  PROVIDE(kernel_end = 0x88000000);
+}

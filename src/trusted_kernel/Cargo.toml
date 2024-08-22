@@ -1,0 +1,26 @@
+[package]
+name = "trusted_kernel"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "1.2.1"
+crossbeam-queue = { version = "0.3.11", default-features = false, features = ["alloc"]}
+lazy_static = { version = "1.5.0", features = ["spin_no_std"]}
+rand = { version = "0.8.5", default-features = false }
+rand_pcg = "0.3.1"
+log = "0.4"
+linkme = {workspace = true}
+
+[dependencies.gimli]
+version = "0.31.0"
+default-features = false
+features = [ "read" ]
+
+# the strategy for finding fde entry in .eh_frame
+[features]
+fde-static = []
+fde-gnu-eh-frame-hdr = []
+default = ["fde-gnu-eh-frame-hdr"]

@@ -1,4 +1,0 @@
-[build]
-rustflags = [
-    "-Clink-args=-Tuser/src/linker.ld", "-Cforce-frame-pointers=yes"
-]

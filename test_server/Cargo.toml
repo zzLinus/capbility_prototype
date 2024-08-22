@@ -1,8 +1,0 @@
-[package]
-name = "test_server"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-linkme = "0.3.27"
-cross_crate = { path = "../trusted_core/cross_crate" }
