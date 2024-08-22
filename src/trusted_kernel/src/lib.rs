@@ -40,12 +40,20 @@ mod unwinding;
 #[macro_use]
 mod console;
 extern crate alloc;
+// allow invoking proc macro within crate
+extern crate self as trusted_kernel;
 
 const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
 
 use alloc::boxed::Box;
+pub use kernel_macros::{trusted_kernel_export, trusted_kernel_invoke};
 pub use log::{error, info, warn};
+use unwinding::panic::catch_unwind;
+// re-export symbols from kernel_object::unwind_point for upper level service cross crate commu
+pub use kernel_object::unwind_point::{
+    invoke_proxy, ExportedAPIIdentifier, GlobalInterface, API_REGISTRY,
+};
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -179,4 +187,8 @@ pub extern "C" fn rust_main() {
 
     console::logger_init();
     info!("trusted kernel is booting ...");
+    match trusted_kernel_invoke!(pm::call_mm_from_pm()) {
+        Some(_) => info!("call stack [kernel -> pm -> kernel -> mm] success"),
+        None => warn!("fail to invoke mm::mmap"),
+    }
 }

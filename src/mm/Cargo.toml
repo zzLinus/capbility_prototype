@@ -1,0 +1,9 @@
+[package]
+name = "mm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+linkme = { workspace = true } 
+trusted_kernel = { path = "../trusted_kernel" } 
+

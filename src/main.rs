@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
-#![feature(linkage)]
 
+extern crate mm;
+extern crate pm;
 extern crate trusted_kernel;
