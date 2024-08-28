@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "src/trusted_kernel"
+]
+
+[workspace.dependencies]
+linkme = "0.3.27"
+
+[package]
+name = "os"
+version = "0.1.0"
+edition = "2021"
+
+
+[profile.dev]
+panic = "unwind"
+[profile.release]
+panic = "unwind"
+
+[dependencies]
+trusted_kernel = { path = "src/trusted_kernel"}
