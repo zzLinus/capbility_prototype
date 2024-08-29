@@ -4,6 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crate_import_macro = { path = "../../../src/utils/crate_import_macro" }
-crate_export_macro = { path = "../../../src/utils/crate_export_macro" }
+service_loader = { workspace = true }
 paste = "1.0.15"

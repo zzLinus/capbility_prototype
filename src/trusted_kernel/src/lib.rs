@@ -32,9 +32,10 @@ mod physmemallocator_slab;
 
 mod capability;
 mod config;
+mod crate_mgmt;
+mod elf_parser;
 mod kernel_object;
 mod sync;
-
 mod unwinding;
 
 #[macro_use]

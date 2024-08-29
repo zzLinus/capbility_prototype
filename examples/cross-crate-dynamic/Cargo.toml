@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "test_client",
+    "test_server"
+]
+
+[workspace.dependencies]
+service_loader = { path = "../../src/service_loader" }
