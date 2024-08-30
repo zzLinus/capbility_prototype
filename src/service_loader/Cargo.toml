@@ -1,0 +1,9 @@
+[package]
+name = "service_loader"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crate_import_macro = { path = "./crate_import_macro" }
+crate_export_macro = { path = "./crate_export_macro" }
+paste = "1.0.15"

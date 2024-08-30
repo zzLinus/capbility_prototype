@@ -7,7 +7,9 @@ edition = "2021"
 resolver = "2"
 members = [
     "src/mm", "src/pm",
-    "src/trusted_kernel", "src/trusted_kernel/kernel_macros"
+    "src/trusted_kernel", 
+    "src/trusted_kernel/kernel_macros",
+    "src/service_loader"
 ]
 [workspace.dependencies]
 linkme = "0.3.27"

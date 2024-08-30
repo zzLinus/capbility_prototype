@@ -1,0 +1,9 @@
+[package]
+name = "test_client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+service_loader = { workspace = true }
+paste = "1.0.15"
+
