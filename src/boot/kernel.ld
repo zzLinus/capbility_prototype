@@ -73,12 +73,16 @@ SECTIONS
 	{
 		*(.gcc_except_table .gcc_except_table.*)
 	}
-  
+
+  /* 64 MB reserved for kernel heap mem */ 
   . = ALIGN(4096);
   heap_start = .;
-  heap_end = . + 0x8000000;
+  heap_end = . + 0x4000000;
   . = heap_end;
 
-  PROVIDE(end = .);
+  /* all remaining mem is reserved for root untype cap */
+  . = ALIGN(4096);
+  PROVIDE(untyped_start = .);
   PROVIDE(kernel_end = 0x88000000);
+  PROVIDE(untyped_end = kernel_end);
 }

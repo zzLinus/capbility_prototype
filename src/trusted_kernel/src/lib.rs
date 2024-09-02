@@ -22,10 +22,7 @@
 #![allow(unexpected_cfgs)]
 #![feature(naked_functions)]
 
-use crate::{
-    pagetable::*,
-    timer::{CLINT_CMP, CLINT_MTIME},
-};
+use crate::pagetable::*;
 use core::arch::asm;
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
@@ -37,6 +34,7 @@ mod elf_parser;
 mod kernel_object;
 mod sync;
 mod unwinding;
+use alloc::vec::Vec;
 
 #[macro_use]
 mod console;
@@ -82,87 +80,6 @@ extern "C" fn abort() -> ! {
     }
 }
 
-extern "C" {
-    fn kernel_base();
-    fn text_end();
-    fn rodata_start();
-    fn rodata_end();
-    fn data_start();
-    fn data_end();
-    fn bss_start();
-    fn bss_end();
-    fn heap_start();
-    fn end();
-    fn kernel_end();
-}
-
-fn vspace_init() -> PageTable {
-    info!(
-        ".text [{:#x}, {:#x})",
-        kernel_base as usize, text_end as usize
-    );
-    info!(
-        ".rodata [{:#x}, {:#x})",
-        rodata_start as usize, rodata_end as usize
-    );
-    info!(
-        ".data [{:#x}, {:#x})",
-        data_start as usize, data_end as usize
-    );
-    info!(".bss [{:#x}, {:#x})", bss_start as usize, bss_end as usize);
-    info!("heap  [{:#x}, {:#x})", heap_start as usize, end as usize);
-
-    let mut pagetable_kernel = PageTable::new();
-    let mut start_temp: VirtPageNum = vpn_align_down(kernel_base as usize);
-    let mut end_temp: VirtPageNum = vpn_align_up(text_end as usize);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::X);
-    }
-
-    start_temp = vpn_align_down(rodata_start as usize);
-    end_temp = vpn_align_up(rodata_end as usize);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
-    }
-
-    start_temp = vpn_align_down(data_start as usize);
-    end_temp = vpn_align_up(data_end as usize);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
-    }
-
-    start_temp = vpn_align_down(bss_start as usize);
-    end_temp = vpn_align_up(bss_end as usize);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
-    }
-
-    start_temp = vpn_align_down(heap_start as usize);
-    end_temp = vpn_align_up(end as usize);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
-    }
-
-    start_temp = vpn_align_down(end as usize);
-    end_temp = vpn_align_up(kernel_end as usize);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
-    }
-
-    start_temp = vpn_align_down(UART_BASE);
-    end_temp = vpn_align_up(UART_END);
-    for vpn in start_temp.0..end_temp.0 {
-        pagetable_kernel.page_map(vpn, vpn, PTEFlags::R | PTEFlags::W);
-    }
-
-    start_temp = vpn_align_down(CLINT_MTIME);
-    pagetable_kernel.page_map(start_temp.0, start_temp.0, PTEFlags::R | PTEFlags::W);
-    start_temp = vpn_align_down(CLINT_CMP);
-    pagetable_kernel.page_map(start_temp.0, start_temp.0, PTEFlags::R | PTEFlags::W);
-
-    pagetable_kernel
-}
-
 pub mod cpu;
 pub mod ecall;
 pub mod globalallocator_impl;
@@ -174,6 +91,11 @@ pub mod timer;
 pub mod trap;
 pub mod uart;
 pub mod vma;
+
+use capability::object::KObj;
+use capability::ROOT_SERVER;
+#[allow(unused_imports)]
+use kernel_object::{Frame, PageTable, RetypeInit, Untyped};
 
 /// rust language entry point, C start() jumps here
 /// currently pagetable is turned off and it should be activated
@@ -191,5 +113,26 @@ pub extern "C" fn rust_main() {
     #[cfg(feature = "test")]
     {
         trusted_kernel_invoke!(tests::entry()).unwrap()
+    }
+    let mut user_frames: Vec<PageTable> = Vec::new();
+    for _ in 0..8 {
+        let pt_kobj = ROOT_SERVER.lock().retype::<PageTable>().unwrap();
+        if let KObj::PageTable(pt) = pt_kobj {
+            println!("base: 0x{:0x}", pt.base_paddr);
+            user_frames.push(pt)
+        } else {
+            error!("fail")
+        }
+    }
+
+    let child_untype = ROOT_SERVER
+        .lock()
+        .retype_dyn_sized::<Untyped>(1024)
+        .unwrap();
+    if let KObj::Untyped(untyped) = child_untype {
+        println!(
+            "start: 0x{:0x} end: 0x{:0x} used: {}",
+            untyped.start, untyped.end, untyped.used
+        );
     }
 }

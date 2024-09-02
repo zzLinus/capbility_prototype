@@ -2,8 +2,20 @@ use super::page_util::clear_memory;
 use super::page_util::{PTEFlags, PhysAddr, PhysPageNum, VirtPageNum, PTE};
 use crate::cpu::{sfence_vma, w_satp};
 
+use super::untyped::RetypeInit;
+use crate::capability::object::{KObj, ObjPtr};
+
 pub struct Frame {
-    root_ppn: PhysPageNum,
+    pub root_ppn: PhysPageNum,
+}
+
+impl RetypeInit for Frame {
+    type StoredAs = [u8; 4096];
+    fn retype_init_in(obj_ptr: ObjPtr<Self::StoredAs>) -> KObj {
+        let paddr = obj_ptr.as_ptr() as usize;
+        let page_size = obj_ptr.len();
+        KObj::Frame(Self::new(paddr, page_size))
+    }
 }
 
 impl Frame {

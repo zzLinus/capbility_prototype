@@ -10,9 +10,9 @@ pub struct CdtNode {
 }
 
 impl CdtNode {
-    pub fn new(c: Arc<Option<Mutex<Cap>>>) -> CdtNode {
+    pub fn new(cap: Arc<Option<Mutex<Cap>>>) -> CdtNode {
         CdtNode {
-            cap: c,
+            cap,
             child: Vec::new(),
         }
     }
