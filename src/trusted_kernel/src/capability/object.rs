@@ -1,53 +1,36 @@
-use crate::capability::alloc::{DefaultKAllocator, KObjAllocator};
-use crate::kernel_object::page_table::PageTable;
-use crate::kernel_object::untype::UntypedObj;
+use crate::kernel_object::{Frame, PageTable, Untyped, TCB};
 use core::alloc::Layout;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
 pub enum KObj {
-    UntypedObj(KObjInner<UntypedObj>),
-    PageTableObj(KObjInner<PageTable>),
+    Untyped(Untyped),
+    TCB(ObjPtr<TCB>),
+    Frame(Frame),
+    PageTable(PageTable),
 }
 
-pub struct KObjInner<T, A: KObjAllocator = DefaultKAllocator>(pub NonNull<T>, pub A);
-
-unsafe impl<T: Send, A: KObjAllocator> Send for KObjInner<T, A> {}
-unsafe impl<T: Sync, A: KObjAllocator> Sync for KObjInner<T, A> {}
-
-impl<T, A: KObjAllocator> KObjInner<T, A> {
-    pub fn into_raw(self) -> *mut T {
-        self.0.as_ptr()
+pub struct ObjPtr<T: ?Sized>(pub NonNull<T>);
+impl<T: ?Sized> ObjPtr<T> {
+    pub fn new(ptr: NonNull<T>) -> Self {
+        Self(ptr)
     }
 }
 
-impl<T, A> Deref for KObjInner<T, A>
-where
-    A: KObjAllocator,
-{
+/// # Safety
+/// Capability system should guarantee that ObjPtr<T> outlives the cap binds to it
+/// i.e the cap associated with a given ObjPtr should be revoked first before wipe out the memory ObjPtr points to
+impl<T: ?Sized> Deref for ObjPtr<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
+        // SAFETY: memory is allocated in retype method, alignment and size are checked
         unsafe { self.0.as_ref() }
     }
 }
 
-impl<T, A> DerefMut for KObjInner<T, A>
-where
-    A: KObjAllocator,
-{
+impl<T: ?Sized> DerefMut for ObjPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        // SAFETY: memory is allocated in retype method, alignment and size are checked
         unsafe { self.0.as_mut() }
-    }
-}
-
-impl<T, A> Drop for KObjInner<T, A>
-where
-    A: KObjAllocator,
-{
-    fn drop(&mut self) {
-        unsafe {
-            self.1
-                .dealloc(NonNull::cast::<u8>(self.0), Layout::new::<T>())
-        }
     }
 }
