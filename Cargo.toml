@@ -9,11 +9,14 @@ members = [
     "src/mm", "src/pm",
     "src/trusted_kernel", 
     "src/trusted_kernel/kernel_macros",
-    "src/service_loader"
+    "src/service_loader",
+    "tester"
 ]
 [workspace.dependencies]
 linkme = "0.3.27"
 spin = "0.9.8"
+tester = { path = "tester" }
+trusted_kernel = { path = "src/trusted_kernel" }
 
 [profile.dev]
 panic = "unwind"
