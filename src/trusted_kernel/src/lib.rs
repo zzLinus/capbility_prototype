@@ -188,8 +188,8 @@ pub extern "C" fn rust_main() {
 
     console::logger_init();
     info!("trusted kernel is booting ...");
-    match trusted_kernel_invoke!(pm::call_mm_from_pm()) {
-        Some(_) => info!("call stack [kernel -> pm -> kernel -> mm] success"),
-        None => warn!("fail to invoke mm::mmap"),
+    #[cfg(feature = "test")]
+    {
+        trusted_kernel_invoke!(tests::entry()).unwrap()
     }
 }

@@ -23,7 +23,13 @@ panic = "unwind"
 [profile.release]
 panic = "unwind"
 
+[features]
+test = ["trusted_kernel/test", "tester", "tests"]
+
 [dependencies]
-trusted_kernel = { path = "src/trusted_kernel"}
+trusted_kernel = { path = "src/trusted_kernel" }
+tester = { path = "tester", optional = true }
+tests = { path = "tests", optional = true }
 mm = {path = "src/mm"}
 pm = {path = "src/pm"}
+
