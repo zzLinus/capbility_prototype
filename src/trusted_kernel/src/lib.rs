@@ -24,8 +24,6 @@
 
 use crate::pagetable::*;
 use core::arch::asm;
-use core::intrinsics::size_of;
-use core::ops::{Deref, DerefMut, Mul};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 
@@ -36,7 +34,6 @@ mod elf_parser;
 mod kernel_object;
 mod sync;
 mod unwinding;
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 pub use lazy_static::*;
 
@@ -55,7 +52,6 @@ use capability::rights::Rights;
 pub use kernel_macros::{trusted_kernel_export, trusted_kernel_invoke};
 use kernel_object::TCB;
 pub use log::{error, info, warn};
-use spin::Mutex;
 use unwinding::panic::catch_unwind;
 // re-export symbols from kernel_object::unwind_point for upper level service cross crate commu
 pub use kernel_object::unwind_point::{
@@ -100,7 +96,7 @@ pub mod trap;
 pub mod uart;
 pub mod vma;
 
-
+use capability::ROOT_SERVER_CAP;
 #[allow(unused_imports)]
 use kernel_object::{Frame, PageTable, RetypeInit, Untyped};
 
@@ -121,4 +117,25 @@ pub extern "C" fn rust_main() {
     {
         trusted_kernel_invoke!(tests::entry()).unwrap()
     }
+    let mut user_frames: Vec<Cap> = Vec::new();
+    let root_cap = ROOT_SERVER_CAP.0.clone();
+    for _ in 0..8 {
+        let pt_cap = root_cap.retype::<PageTable>().unwrap();
+        println!(
+            "base: 0x{:0x}",
+            kobj_unchecked!(<pt_cap as PageTable>.base_paddr)
+        );
+        let _ = kobj!(<pt_cap as PageTable>.base_paddr).unwrap();
+        user_frames.push(pt_cap);
+    }
+    let child_untyped_cap = root_cap.retype_dyn_sized::<Untyped>(1024).unwrap();
+    let tcb_cap = child_untyped_cap.retype::<TCB>().unwrap();
+    match child_untyped_cap.revoke() {
+        Ok(_) => info!("revoke succeeded"),
+        Err(e) => error!("{:?}", e),
+    };
+    match tcb_cap.mint(Rights::default()) {
+        Ok(_) => error!("mint after revoke is supposed to fail"),
+        Err(e) => info!("revoke test passed,mint after revoke return:{:?}", e),
+    };
 }

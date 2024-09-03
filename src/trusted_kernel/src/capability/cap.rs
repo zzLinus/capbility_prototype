@@ -24,8 +24,12 @@ pub struct CapInner {
     pub cdt_node: Weak<Mutex<CdtNode>>,
 }
 
-pub enum MintERR {
-    SrcUnmintable,
+#[derive(Debug)]
+pub enum CapErr {
+    MintErr,
+    UpgradeErr,
+    RetypeErr,
+    DecodeErr,
 }
 
 impl Cap {
@@ -66,46 +70,47 @@ impl Cap {
         (cap, inner)
     }
 
-    pub fn get_inner(&self) -> Arc<Mutex<CapInner>> {
-        self.inner.upgrade().unwrap()
+    pub fn get_inner(&self) -> Result<Arc<Mutex<CapInner>>, CapErr> {
+        self.inner.upgrade().ok_or_else(|| CapErr::UpgradeErr)
     }
 
-    pub fn revoke(&self) {
-        self.get_inner()
+    pub fn revoke(&self) -> Result<(), CapErr> {
+        self.get_inner()?
             .lock()
             .cdt_node
             .upgrade()
-            .unwrap()
+            .ok_or(CapErr::UpgradeErr)?
             .lock()
             .revoke();
+        Ok(())
     }
 
-    pub fn mint(&self, rights: Rights) -> Result<Cap, MintERR> {
-        let kobj = self.get_inner().lock().object.clone();
+    pub fn mint(&self, rights: Rights) -> Result<Cap, CapErr> {
+        let kobj = self.get_inner()?.lock().object.clone();
 
         let (cap, inner) = self.mint_cap(kobj, rights);
 
         let cdt = Arc::new(Mutex::new(CdtNode::new(inner)));
-        cap.get_inner().lock().cdt_node = Arc::downgrade(&cdt);
+        cap.get_inner()?.lock().cdt_node = Arc::downgrade(&cdt);
         // append new cap's cdt_node to father->child
-        self.get_inner()
+        self.get_inner()?
             .lock()
             .cdt_node
             .upgrade()
-            .unwrap()
+            .ok_or(CapErr::UpgradeErr)?
             .lock()
             .child
             .push(cdt.clone());
         Ok(cap)
     }
 
-    pub fn retype<T>(&self) -> Result<Cap, RetypeErr>
+    pub fn retype<T>(&self) -> Result<Cap, CapErr>
     where
         T: RetypeInit,
         T::StoredAs: Sized,
     {
         //let mut kobj_guard = &self.get_inner().lock().object;
-        let new_obj = match *self.get_inner().lock().object.lock() {
+        let new_obj = match *self.get_inner()?.lock().object.lock() {
             KObj::Untyped(ref mut untyped) => untyped.retype::<T>().unwrap(),
             _ => panic!("retype can only be performed on an untyped object"),
         };
@@ -113,21 +118,21 @@ impl Cap {
         let (cap, inner) = self.new_cap(new_obj);
 
         let cdt = Arc::new(Mutex::new(CdtNode::new(inner)));
-        cap.get_inner().lock().cdt_node = Arc::downgrade(&cdt);
+        cap.get_inner()?.lock().cdt_node = Arc::downgrade(&cdt);
         // append new cap's cdt_node to father->child
-        self.get_inner()
+        self.get_inner()?
             .lock()
             .cdt_node
             .upgrade()
-            .unwrap()
+            .ok_or(CapErr::UpgradeErr)?
             .lock()
             .child
             .push(cdt.clone());
         Ok(cap)
     }
 
-    pub fn retype_dyn_sized<T: RetypeInit>(&mut self, size: usize) -> Result<Cap, RetypeErr> {
-        let new_obj = match *self.get_inner().lock().object.lock() {
+    pub fn retype_dyn_sized<T: RetypeInit>(&self, size: usize) -> Result<Cap, CapErr> {
+        let new_obj = match *self.get_inner()?.lock().object.lock() {
             KObj::Untyped(ref mut untyped) => untyped.retype_dyn_sized::<T>(size).unwrap(),
             _ => panic!("retype can only be performed on an untyped object"),
         };
@@ -135,13 +140,13 @@ impl Cap {
         let (cap, inner) = self.new_cap(new_obj);
 
         let cdt = Arc::new(Mutex::new(CdtNode::new(inner)));
-        cap.get_inner().lock().cdt_node = Arc::downgrade(&cdt);
+        cap.get_inner()?.lock().cdt_node = Arc::downgrade(&cdt);
         //append new cap's cdt_node to father->child
-        self.get_inner()
+        self.get_inner()?
             .lock()
             .cdt_node
             .upgrade()
-            .unwrap()
+            .ok_or(CapErr::UpgradeErr)?
             .lock()
             .child
             .push(cdt.clone());
