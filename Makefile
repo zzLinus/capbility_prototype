@@ -21,8 +21,8 @@ all: $(BUILD_DIR) fmt
 	@ln -sf $(TRUSTED_OS_RUST_BIN) $(TARGET)
 
 # build test
-# TODO: impl test
 test: $(BUILD_DIR) fmt
+	@cargo build --features="test"
 	@ln -sf $(TRUSTED_OS_RUST_BIN) $(TARGET)
 	
 # build and run qemu image

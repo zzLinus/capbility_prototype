@@ -1,0 +1,8 @@
+[package]
+name = "tester"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tester_macros = { path = "./macros" }
+linkme = { workspace = true }

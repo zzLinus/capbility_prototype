@@ -4,3 +4,6 @@
 extern crate mm;
 extern crate pm;
 extern crate trusted_kernel;
+
+#[cfg(feature = "test")]
+extern crate tests;
