@@ -1,6 +1,5 @@
 use alloc::boxed::Box;
 
-use crate::sync::Mutex;
 use crate::warn;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
@@ -8,6 +7,7 @@ use core::any::TypeId;
 use lazy_static::lazy_static;
 use linkme;
 use spin::rwlock::RwLock;
+use spin::Mutex;
 
 #[linkme::distributed_slice]
 pub static API_REGISTRY: [fn() -> Box<dyn GlobalInterface + Send + Sync>];

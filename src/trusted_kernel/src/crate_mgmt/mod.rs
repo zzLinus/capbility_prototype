@@ -10,7 +10,6 @@ use crate::elf_parser::reloc::{ElfRel64UncopiedTab, ElfRela64UncopiedTab};
 use crate::elf_parser::symtab::ElfSym64Uncopied;
 use crate::elf_parser::{is_elf, ElfFile64Uncopied, ElfUncopied};
 use crate::kmem::{KMEM, PAGE_SIZE};
-use crate::sync::Mutex;
 use crate::{println, VirtAddr};
 use alloc::boxed::Box;
 use alloc::collections::btree_map::BTreeMap;
@@ -20,6 +19,7 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 use core::mem;
 use log::{error, info, warn};
+use spin::Mutex;
 use spin::Once;
 use util::{get_rela_target_section_name, get_relocation_value, set_relocation_value};
 

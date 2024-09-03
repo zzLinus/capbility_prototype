@@ -1,18 +1,18 @@
-use super::cap::Cap;
+use super::cap::{Cap, CapInner};
 use crate::println;
-use crate::sync::Mutex;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use spin::Mutex;
 
 pub struct CdtNode {
-    pub cap: Arc<Option<Mutex<Cap>>>,
+    pub cap: Arc<Mutex<CapInner>>,
     pub child: Vec<Arc<Mutex<CdtNode>>>,
 }
 
 impl CdtNode {
-    pub fn new(cap: Arc<Option<Mutex<Cap>>>) -> CdtNode {
+    pub fn new(inner: Arc<Mutex<CapInner>>) -> CdtNode {
         CdtNode {
-            cap,
+            cap: inner,
             child: Vec::new(),
         }
     }

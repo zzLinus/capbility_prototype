@@ -57,7 +57,7 @@ pub enum RetypeErr {
 
 impl Untyped {
     /// make different retype stragety explicit to enforce compiler check on associated type RetypeInit::StoredAs
-    pub fn retype<T>(&mut self) -> Result<KObj, RetypeErr>
+    pub(crate) fn retype<T>(&mut self) -> Result<KObj, RetypeErr>
     where
         T: RetypeInit,
         T::StoredAs: Sized,
@@ -71,7 +71,10 @@ impl Untyped {
         Ok(T::retype_init_in(obj_ptr))
     }
 
-    pub fn retype_dyn_sized<T: RetypeInit>(&mut self, size: usize) -> Result<KObj, RetypeErr> {
+    pub(crate) fn retype_dyn_sized<T: RetypeInit>(
+        &mut self,
+        size: usize,
+    ) -> Result<KObj, RetypeErr> {
         let layout = Layout::from_size_align(size, size.next_power_of_two()).unwrap();
         let obj_ptr = {
             let coerced_slice_ptr = T::StoredAs::from_untyped_region(self.alloc(layout)?);

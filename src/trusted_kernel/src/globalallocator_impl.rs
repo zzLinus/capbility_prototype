@@ -1,9 +1,9 @@
 use crate::physmemallocator_buddy::{BuddyAllocator, PhysMemory};
 use crate::physmemallocator_slab::{AllocationError, Allocator, SlabPool};
-use crate::sync::Mutex;
 use core::alloc::{GlobalAlloc, Layout};
 use core::mem::transmute;
 use core::ptr::NonNull;
+use spin::Mutex;
 
 const BASE_PAGE_SIZE: usize = 4096;
 const HUGE_PAGE_SIZE: usize = 2 * 1024 * 1024;

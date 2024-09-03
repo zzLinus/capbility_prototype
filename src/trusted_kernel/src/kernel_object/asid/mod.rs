@@ -1,12 +1,12 @@
 use super::page_table::PageTable;
 use super::page_util::{PhysAddr, PTE};
 use crate::capability::object::ObjPtr;
-use crate::sync::Mutex;
 use crate::{BIT, MASK};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::mem::MaybeUninit;
 use core::ptr;
+use spin::Mutex;
 
 pub const ASID_LOW_BITS: usize = 9;
 pub const ASID_HIGH_BITS: usize = 7;

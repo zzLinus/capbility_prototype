@@ -24,6 +24,8 @@
 
 use crate::pagetable::*;
 use core::arch::asm;
+use core::intrinsics::size_of;
+use core::ops::{Deref, DerefMut, Mul};
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 
@@ -34,7 +36,9 @@ mod elf_parser;
 mod kernel_object;
 mod sync;
 mod unwinding;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
+pub use lazy_static::*;
 
 #[macro_use]
 mod console;
@@ -46,8 +50,12 @@ const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
 
 use alloc::boxed::Box;
+use capability::cap::Cap;
+use capability::rights::Rights;
 pub use kernel_macros::{trusted_kernel_export, trusted_kernel_invoke};
+use kernel_object::TCB;
 pub use log::{error, info, warn};
+use spin::Mutex;
 use unwinding::panic::catch_unwind;
 // re-export symbols from kernel_object::unwind_point for upper level service cross crate commu
 pub use kernel_object::unwind_point::{
@@ -92,8 +100,7 @@ pub mod trap;
 pub mod uart;
 pub mod vma;
 
-use capability::object::KObj;
-use capability::ROOT_SERVER;
+
 #[allow(unused_imports)]
 use kernel_object::{Frame, PageTable, RetypeInit, Untyped};
 
@@ -113,26 +120,5 @@ pub extern "C" fn rust_main() {
     #[cfg(feature = "test")]
     {
         trusted_kernel_invoke!(tests::entry()).unwrap()
-    }
-    let mut user_frames: Vec<PageTable> = Vec::new();
-    for _ in 0..8 {
-        let pt_kobj = ROOT_SERVER.lock().retype::<PageTable>().unwrap();
-        if let KObj::PageTable(pt) = pt_kobj {
-            println!("base: 0x{:0x}", pt.base_paddr);
-            user_frames.push(pt)
-        } else {
-            error!("fail")
-        }
-    }
-
-    let child_untype = ROOT_SERVER
-        .lock()
-        .retype_dyn_sized::<Untyped>(1024)
-        .unwrap();
-    if let KObj::Untyped(untyped) = child_untype {
-        println!(
-            "start: 0x{:0x} end: 0x{:0x} used: {}",
-            untyped.start, untyped.end, untyped.used
-        );
     }
 }

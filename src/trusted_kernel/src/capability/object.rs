@@ -1,3 +1,5 @@
+use rand::seq;
+
 use crate::kernel_object::{Frame, PageTable, Untyped, TCB};
 use core::alloc::Layout;
 use core::ops::{Deref, DerefMut};
@@ -16,6 +18,8 @@ impl<T: ?Sized> ObjPtr<T> {
         Self(ptr)
     }
 }
+unsafe impl<T: Send + Sync + ?Sized> Send for ObjPtr<T> {}
+unsafe impl<T: Send + Sync + ?Sized> Sync for ObjPtr<T> {}
 
 /// # Safety
 /// Capability system should guarantee that ObjPtr<T> outlives the cap binds to it

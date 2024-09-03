@@ -1,8 +1,13 @@
 #![allow(unused_imports)]
 mod layout;
+use super::RetypeInit;
+use crate::capability::object::{KObj, ObjPtr};
+use crate::trusted_kernel_invoke;
+use crate::{capability::cap::Cap, sync::Mutex};
 use alloc::boxed::Box;
 use core::fmt::{Debug, Formatter};
 pub use layout::{KernelStack, ScheContext, TrapContext, UserStack};
+use log::{info, warn};
 
 #[derive(Debug, Default, Clone)]
 pub struct IPCBuffer {
@@ -25,6 +30,16 @@ pub struct TCB {
     pub(crate) sche_ctx: ScheContext,
     pub(crate) state: ThreadState,
     pub(crate) ipc_buf: Box<IPCBuffer>,
+}
+
+unsafe impl Send for TCB {}
+unsafe impl Sync for TCB {}
+
+impl RetypeInit for TCB {
+    type StoredAs = Self;
+    fn retype_init_in(obj_ptr: ObjPtr<Self::StoredAs>) -> KObj {
+        KObj::TCB(obj_ptr)
+    }
 }
 
 impl Debug for TCB {
