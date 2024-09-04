@@ -29,13 +29,13 @@ mod physmemallocator_slab;
 
 #[macro_use]
 mod capability;
+
 mod config;
 mod crate_mgmt;
 mod elf_parser;
 mod kernel_object;
 mod sync;
 mod unwinding;
-use alloc::vec::Vec;
 pub use lazy_static::*;
 
 #[macro_use]
@@ -48,16 +48,38 @@ const UART_BASE: usize = 0x1000_0000;
 const UART_END: usize = 0x1000_1000;
 
 use alloc::boxed::Box;
-use capability::cap::Cap;
-use capability::rights::Rights;
 pub use kernel_macros::{trusted_kernel_export, trusted_kernel_invoke};
-use kernel_object::TCB;
 pub use log::{error, info, warn};
 use unwinding::panic::catch_unwind;
 // re-export symbols from kernel_object::unwind_point for upper level service cross crate commu
 pub use kernel_object::unwind_point::{
     invoke_proxy, ExportedAPIIdentifier, GlobalInterface, API_REGISTRY,
 };
+
+/// use this hack instead of grouping all to-be-cfged items into mod to accommondate `tester`crate
+/// `tester` requires that registry is declared at crate root level
+/// but currently there is no easy way to export the static registries within a mod, mangled name inaccessible
+macro_rules! cfg_all {
+    ($feature: expr, {$($to_cfg: item)+}) => {
+        $(
+            #[cfg(feature = $feature)]
+            $to_cfg
+        )+
+    }
+}
+cfg_all!("test", {
+    #[macro_use]
+    extern crate tester;
+    declare_registry!(no_panic);
+    type TesterResult = (usize, alloc::vec::Vec<tester::TestFnInfo>);
+    fn dump_test_result(result: TesterResult) {
+        let (num_passed, failed_cases) = result;
+        info!("{num_passed} tests passed");
+        for fail_info in &failed_cases {
+            error!("failure: {:?}", fail_info);
+        }
+    }
+});
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -90,16 +112,10 @@ pub mod ecall;
 pub mod globalallocator_impl;
 pub mod kmem;
 pub mod pagetable;
-#[cfg(kernel_test)]
-pub mod test_framework;
 pub mod timer;
 pub mod trap;
 pub mod uart;
 pub mod vma;
-
-use capability::ROOT_SERVER_CAP;
-#[allow(unused_imports)]
-use kernel_object::{Frame, PageTable, RetypeInit, Untyped};
 
 /// rust language entry point, C start() jumps here
 /// currently pagetable is turned off and it should be activated
@@ -114,29 +130,10 @@ pub extern "C" fn rust_main() {
 
     console::logger_init();
     info!("trusted kernel is booting ...");
+    // run all tests, including external tests oraganized in tests folder and unit tests registered within crate
     #[cfg(feature = "test")]
     {
-        trusted_kernel_invoke!(tests::entry()).unwrap()
+        trusted_kernel_invoke!(tests::entry()).unwrap();
+        dump_test_result(test_all!(no_panic));
     }
-    let mut user_frames: Vec<Cap> = Vec::new();
-    let root_cap = ROOT_SERVER_CAP.0.clone();
-    for _ in 0..8 {
-        let pt_cap = root_cap.retype::<PageTable>().unwrap();
-        println!(
-            "base: 0x{:0x}",
-            kobj_unchecked!(<pt_cap as PageTable>.base_paddr)
-        );
-        let _ = kobj!(<pt_cap as PageTable>.base_paddr).unwrap();
-        user_frames.push(pt_cap);
-    }
-    let child_untyped_cap = root_cap.retype_dyn_sized::<Untyped>(1024).unwrap();
-    let tcb_cap = child_untyped_cap.retype::<TCB>().unwrap();
-    match child_untyped_cap.revoke() {
-        Ok(_) => info!("revoke succeeded"),
-        Err(e) => error!("{:?}", e),
-    };
-    match tcb_cap.mint(Rights::default()) {
-        Ok(_) => error!("mint after revoke is supposed to fail"),
-        Err(e) => info!("revoke test passed,mint after revoke return:{:?}", e),
-    };
 }

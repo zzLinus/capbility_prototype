@@ -43,6 +43,7 @@ lazy_static! {
 /// fails if:
 ///     weak arc upgrading fail
 ///     kernel object variants mismatch
+#[macro_export]
 macro_rules! kobj {
     (<$cap: ident as $kobj_ty: ident>.$accessor: ident$($may_call: tt)?) => {{
         $cap.get_inner().and_then(|inner| {
@@ -59,6 +60,7 @@ macro_rules! kobj {
 /// unchecked version of kobj!, no error propagation invoked
 /// if any of the intermediate unwrap fails, kernel will panic
 /// user should guarantee that weak can be upgraded and kernel object exactly matches
+#[macro_export]
 macro_rules! kobj_unchecked {
     (<$cap: ident as $kobj_ty: ident>.$accessor: ident$($may_call: tt)?) => {{
         if let $crate::capability::object::KObj::$kobj_ty(ref mut object) = *$cap.get_inner().unwrap().lock().object.lock() {
@@ -72,3 +74,31 @@ macro_rules! kobj_unchecked {
 // Proposal
 // kobj_set_field!(<cap as Variant>.field_name = val)
 // macro_rules! kobj_set_field {}
+
+#[cfg(feature = "test")]
+mod tests {
+    use super::rights::Rights;
+    use super::Cap;
+    use crate::capability::ROOT_SERVER_CAP;
+    #[allow(unused_imports)]
+    use crate::kernel_object::{Frame, PageTable, RetypeInit, Untyped, TCB};
+    use alloc::vec::Vec;
+
+    #[kernel_test(no_panic)]
+    fn test_cap_revoke() -> bool {
+        let mut user_frames: Vec<Cap> = Vec::new();
+        let root_cap = ROOT_SERVER_CAP.0.clone();
+        for _ in 0..8 {
+            let pt_cap = root_cap.retype::<PageTable>().unwrap();
+            crate::println!(
+                "base: 0x{:0x}",
+                kobj_unchecked!(<pt_cap as PageTable>.base_paddr)
+            );
+            let _ = kobj!(<pt_cap as PageTable>.base_paddr).unwrap();
+            user_frames.push(pt_cap);
+        }
+        let child_untyped_cap = root_cap.retype_dyn_sized::<Untyped>(1024).unwrap();
+        let tcb_cap = child_untyped_cap.retype::<TCB>().unwrap();
+        child_untyped_cap.revoke().is_ok() && tcb_cap.mint(Rights::default()).is_err()
+    }
+}

@@ -16,6 +16,7 @@ kernel_macros = {path = "kernel_macros"}
 linkme = {workspace = true}
 spin = {workspace = true}
 paste = "1.0.15"
+tester = { workspace = true, optional = true }
 
 [dependencies.gimli]
 version = "0.31.0"
@@ -27,4 +28,4 @@ features = [ "read" ]
 fde-static = []
 fde-gnu-eh-frame-hdr = []
 default = ["fde-gnu-eh-frame-hdr"]
-test = ["default"]
+test = ["default", "tester"]
