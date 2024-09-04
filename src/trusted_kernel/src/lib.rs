@@ -27,6 +27,7 @@ use core::arch::asm;
 mod physmemallocator_buddy;
 mod physmemallocator_slab;
 
+#[macro_use]
 mod capability;
 mod config;
 mod crate_mgmt;
